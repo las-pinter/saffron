@@ -1,12 +1,15 @@
 //! The `saffron` binary.
 
-use std::net::SocketAddr;
+use std::{net::SocketAddr, path::PathBuf};
 
 use anyhow::Context;
 use tracing_subscriber::EnvFilter;
 
 /// Loopback by default: Saffron is meant to sit behind a VPN or reverse proxy.
 const DEFAULT_BIND: &str = "127.0.0.1:8640";
+
+/// Relative to the working directory; the container image sets `/data`.
+const DEFAULT_DATA_DIR: &str = "data";
 
 const USAGE: &str = "usage: saffron [healthcheck]";
 
@@ -33,15 +36,30 @@ async fn serve(addr: SocketAddr) -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
 
+    // Bind first: a busy port then fails before the database is opened.
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .with_context(|| format!("cannot listen on {addr}"))?;
+
+    let data_dir = PathBuf::from(
+        std::env::var_os("SAFFRON_DATA_DIR")
+            .filter(|dir| !dir.is_empty())
+            .unwrap_or_else(|| DEFAULT_DATA_DIR.into()),
+    );
+    let database = data_dir.join(saffron_db::DATABASE_FILE);
+    let pool = saffron_db::open(&database)
+        .await
+        .with_context(|| format!("cannot open the database {}", database.display()))?;
+    tracing::info!(database = %database.display(), "database ready");
     tracing::info!(%addr, "saffron listening");
 
-    axum::serve(listener, saffron_server::app())
+    let served = axum::serve(listener, saffron_server::app())
         .with_graceful_shutdown(shutdown_signal())
         .await
-        .context("server stopped with an error")
+        .context("server stopped with an error");
+    // Closing checkpoints the WAL into the database file.
+    pool.close().await;
+    served
 }
 
 async fn shutdown_signal() {
