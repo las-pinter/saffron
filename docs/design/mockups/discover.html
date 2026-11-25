@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saffron discover</title>
+<!-- Static design mockup of Saffron (saffron night theme). Sample data only. See ../DESIGN.md. -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Inter+Tight:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#1A0F0A}
+a{color:#F5B32E}a:hover{color:#FFC861}
+table{border-collapse:collapse}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; background: #1A0F0A; color: #F6E7D3; font-family: Inter, system-ui, sans-serif; font-size: 14px; font-variant-numeric: tabular-nums">
+
+<header style="background: #26160F; border-bottom: 1px solid #4A2C1D">
+<div style="max-width: 1320px; margin: 0 auto; padding: 0 32px; min-height: 64px; display: flex; flex-wrap: wrap; align-items: center; gap: 24px">
+<a href="overview.html" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #F6E7D3">
+<svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="13" fill="#4D2410"></circle><path d="M14 22 C12 16 9 12 7 8 M14 22 C14 15 14 10 14 6 M14 22 C16 16 19 12 21 8" stroke="#E8552B" stroke-width="2" fill="none" stroke-linecap="round"></path><circle cx="7" cy="8" r="1.8" fill="#F5A020"></circle><circle cx="14" cy="6" r="1.8" fill="#F5A020"></circle><circle cx="21" cy="8" r="1.8" fill="#F5A020"></circle></svg>
+<span style="font-family: 'Inter Tight', Inter, sans-serif; font-weight: 700; font-size: 19px">Saffron</span>
+</a>
+<nav aria-label="Main" style="display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 auto">
+<a href="overview.html" style="padding: 10px 14px; border-radius: 8px; color: #E3CBAE; text-decoration: none">Overview</a>
+<a href="holding.html" style="padding: 10px 14px; border-radius: 8px; color: #E3CBAE; text-decoration: none">Holdings</a>
+<a href="discover.html" style="padding: 10px 14px; border-radius: 8px; background: #4D2410; color: #FFC861; font-weight: 600; text-decoration: none">Discover</a>
+<a href="ai-desk.html" style="padding: 10px 14px; border-radius: 8px; color: #E3CBAE; text-decoration: none">AI desk</a>
+<a href="#" style="padding: 10px 14px; border-radius: 8px; color: #E3CBAE; text-decoration: none">Taxes</a>
+</nav>
+<button type="button" aria-label="Account menu" style="width: 40px; height: 40px; border-radius: 20px; border: 0; background: #F5B32E; color: #1A0F0A; font-weight: 600">LP</button>
+</div>
+</header>
+
+<main style="max-width: 1320px; margin: 0 auto; padding: 32px; display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px">
+<div>
+<h1 style="margin: 0; font-family: 'Inter Tight', Inter, sans-serif; font-size: 30px; font-weight: 600; letter-spacing: -0.02em">Discover</h1>
+<p style="margin: 4px 0 0; color: #C4A585">Today's scan of 152 instruments you can buy through OP · ran 06:40 · ranked by trend, cost and fit with your portfolio</p>
+</div>
+<button type="button" style="height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #4A2C1D; background: #26160F; font: inherit">Edit universe</button>
+</div>
+
+<div role="group" aria-label="Universe filter" style="display: flex; flex-wrap: wrap; gap: 8px">
+
+<button type="button" aria-pressed="true" style="height: 36px; padding: 0 14px; border-radius: 18px; font: inherit; cursor: pointer; border: 1px solid #F6E7D3; background: #F5B32E; color: #1A0F0A">All 152</button>
+
+<button type="button" aria-pressed="false" style="height: 36px; padding: 0 14px; border-radius: 18px; font: inherit; cursor: pointer; border: 1px solid #4A2C1D; background: #26160F; color: #F6E7D3">OP funds 41</button>
+
+<button type="button" aria-pressed="false" style="height: 36px; padding: 0 14px; border-radius: 18px; font: inherit; cursor: pointer; border: 1px solid #4A2C1D; background: #26160F; color: #F6E7D3">OMX Helsinki 25</button>
+
+<button type="button" aria-pressed="false" style="height: 36px; padding: 0 14px; border-radius: 18px; font: inherit; cursor: pointer; border: 1px solid #4A2C1D; background: #26160F; color: #F6E7D3">UCITS ETFs 52</button>
+
+<button type="button" aria-pressed="false" style="height: 36px; padding: 0 14px; border-radius: 18px; font: inherit; cursor: pointer; border: 1px solid #4A2C1D; background: #26160F; color: #F6E7D3">My watchlist 9</button>
+
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+<section aria-labelledby="res" style="flex: 999 1 640px; min-width: 0; background: #26160F; border: 1px solid #4A2C1D; border-radius: 16px; padding: 24px">
+<h2 id="res" style="margin: 0; font-family: 'Inter Tight', Inter, sans-serif; font-size: 18px; font-weight: 600">Top candidates</h2>
+<div style="overflow-x: auto; margin-top: 12px">
+<table style="width: 100%; min-width: 720px">
+<thead><tr style="color: #C4A585; font-size: 12px; text-align: right">
+<th scope="col" style="text-align: left; font-weight: 500; padding: 10px 8px; border-bottom: 1px solid #4A2C1D">#</th>
+<th scope="col" style="text-align: left; font-weight: 500; padding: 10px 8px; border-bottom: 1px solid #4A2C1D">Instrument</th>
+<th scope="col" style="text-align: left; font-weight: 500; padding: 10px 8px; border-bottom: 1px solid #4A2C1D">6 months</th>
+<th scope="col" style="font-weight: 500; padding: 10px 8px; border-bottom: 1px solid #4A2C1D">Return 6 m</th>
+<th scope="col" style="font-weight: 500; padding: 10px 8px; border-bottom: 1px solid #4A2C1D">Max drop</th>
+<th scope="col" style="font-weight: 500; padding: 10px 8px; border-bottom: 1px solid #4A2C1D">Yearly fee</th>
+<th scope="col" style="font-weight: 500; padding: 10px 8px; border-bottom: 1px solid #4A2C1D">Score</th>
+<th scope="col" style="text-align: left; font-weight: 500; padding: 10px 8px; border-bottom: 1px solid #4A2C1D">AI view</th>
+</tr></thead>
+<tbody style="text-align: right">
+
+<tr style="background: #42260E">
+<td style="text-align: left; padding: 12px 8px; border-bottom: 1px solid #3A2217; color: #C4A585">1</td>
+<th scope="row" style="text-align: left; font-weight: 400; padding: 12px 8px; border-bottom: 1px solid #3A2217"><button type="button" style="border: 0; background: transparent; padding: 0; font: inherit; font-weight: 600; color: #F6E7D3; cursor: pointer; text-align: left">OP-Eurooppa Indeksi B</button><br><span style="color: #C4A585; font-size: 12px">OP fund · Europe equity</span></th>
+<td style="text-align: left; padding: 12px 8px; border-bottom: 1px solid #3A2217"><svg viewBox="0 0 100 30" style="width: 100px; height: 30px; display: block" aria-hidden="true"><path d="M0 24 L15 22 L30 20 L45 18 L60 14 L75 12 L90 9 L100 6" stroke="#F5A020" stroke-width="2" fill="none"></path></svg></td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217; color: #7BD3A6">▲ 9,4 %</td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217">−4,1 %</td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217">0,20 %</td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217; font-weight: 700">86</td>
+<td style="text-align: left; padding: 12px 8px; border-bottom: 1px solid #3A2217"><span style="padding: 3px 8px; border-radius: 6px; background: #2B1F3D; color: #C3AEF5; font-weight: 600">Watch</span></td>
+</tr>
+
+<tr style="">
+<td style="text-align: left; padding: 12px 8px; border-bottom: 1px solid #3A2217; color: #C4A585">2</td>
+<th scope="row" style="text-align: left; font-weight: 400; padding: 12px 8px; border-bottom: 1px solid #3A2217"><button type="button" style="border: 0; background: transparent; padding: 0; font: inherit; font-weight: 600; color: #F6E7D3; cursor: pointer; text-align: left">Xtrackers MSCI World Value</button><br><span style="color: #C4A585; font-size: 12px">UCITS ETF · XDEV · Xetra</span></th>
+<td style="text-align: left; padding: 12px 8px; border-bottom: 1px solid #3A2217"><svg viewBox="0 0 100 30" style="width: 100px; height: 30px; display: block" aria-hidden="true"><path d="M0 22 L15 23 L30 19 L45 17 L60 15 L75 14 L90 10 L100 8" stroke="#F5A020" stroke-width="2" fill="none"></path></svg></td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217; color: #7BD3A6">▲ 8,8 %</td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217">−5,0 %</td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217">0,25 %</td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217; font-weight: 700">81</td>
+<td style="text-align: left; padding: 12px 8px; border-bottom: 1px solid #3A2217"><span style="padding: 3px 8px; border-radius: 6px; background: #2B1F3D; color: #C3AEF5; font-weight: 600">Watch</span></td>
+</tr>
+
+<tr style="">
+<td style="text-align: left; padding: 12px 8px; border-bottom: 1px solid #3A2217; color: #C4A585">3</td>
+<th scope="row" style="text-align: left; font-weight: 400; padding: 12px 8px; border-bottom: 1px solid #3A2217"><button type="button" style="border: 0; background: transparent; padding: 0; font: inherit; font-weight: 600; color: #F6E7D3; cursor: pointer; text-align: left">Kone</button><br><span style="color: #C4A585; font-size: 12px">Stock · KNEBV.HE · Helsinki</span></th>
+<td style="text-align: left; padding: 12px 8px; border-bottom: 1px solid #3A2217"><svg viewBox="0 0 100 30" style="width: 100px; height: 30px; display: block" aria-hidden="true"><path d="M0 25 L15 21 L30 22 L45 18 L60 16 L75 12 L90 11 L100 9" stroke="#F5A020" stroke-width="2" fill="none"></path></svg></td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217; color: #7BD3A6">▲ 7,9 %</td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217">−6,3 %</td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217">—</td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217; font-weight: 700">77</td>
+<td style="text-align: left; padding: 12px 8px; border-bottom: 1px solid #3A2217"><span style="padding: 3px 8px; border-radius: 6px; background: #3A2217; color: #F6E7D3; font-weight: 600">Hold</span></td>
+</tr>
+
+<tr style="">
+<td style="text-align: left; padding: 12px 8px; border-bottom: 1px solid #3A2217; color: #C4A585">4</td>
+<th scope="row" style="text-align: left; font-weight: 400; padding: 12px 8px; border-bottom: 1px solid #3A2217"><button type="button" style="border: 0; background: transparent; padding: 0; font: inherit; font-weight: 600; color: #F6E7D3; cursor: pointer; text-align: left">OP-Ilmasto B</button><br><span style="color: #C4A585; font-size: 12px">OP fund · Global climate equity</span></th>
+<td style="text-align: left; padding: 12px 8px; border-bottom: 1px solid #3A2217"><svg viewBox="0 0 100 30" style="width: 100px; height: 30px; display: block" aria-hidden="true"><path d="M0 26 L15 24 L30 25 L45 20 L60 18 L75 17 L90 13 L100 12" stroke="#F5A020" stroke-width="2" fill="none"></path></svg></td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217; color: #7BD3A6">▲ 6,2 %</td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217">−7,8 %</td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217">1,40 %</td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217; font-weight: 700">69</td>
+<td style="text-align: left; padding: 12px 8px; border-bottom: 1px solid #3A2217"><span style="padding: 3px 8px; border-radius: 6px; background: #3A2217; color: #F6E7D3; font-weight: 600">Hold</span></td>
+</tr>
+
+<tr style="">
+<td style="text-align: left; padding: 12px 8px; border-bottom: 1px solid #3A2217; color: #C4A585">5</td>
+<th scope="row" style="text-align: left; font-weight: 400; padding: 12px 8px; border-bottom: 1px solid #3A2217"><button type="button" style="border: 0; background: transparent; padding: 0; font: inherit; font-weight: 600; color: #F6E7D3; cursor: pointer; text-align: left">iShares Core EUR Govt Bond</button><br><span style="color: #C4A585; font-size: 12px">UCITS ETF · IEGA · Euronext Amsterdam</span></th>
+<td style="text-align: left; padding: 12px 8px; border-bottom: 1px solid #3A2217"><svg viewBox="0 0 100 30" style="width: 100px; height: 30px; display: block" aria-hidden="true"><path d="M0 18 L15 17 L30 17 L45 16 L60 16 L75 15 L90 15 L100 14" stroke="#F5A020" stroke-width="2" fill="none"></path></svg></td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217; color: #7BD3A6">▲ 1,9 %</td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217">−1,2 %</td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217">0,07 %</td>
+<td style="padding: 12px 8px; border-bottom: 1px solid #3A2217; font-weight: 700">66</td>
+<td style="text-align: left; padding: 12px 8px; border-bottom: 1px solid #3A2217"><span style="padding: 3px 8px; border-radius: 6px; background: #163326; color: #7BD3A6; font-weight: 600">Buy</span></td>
+</tr>
+
+</tbody>
+</table>
+</div>
+<p style="margin: 14px 0 0; font-size: 12px; color: #C4A585">Score = 40 % trend, 20 % drawdown, 20 % fee, 20 % fit (how much it diversifies what you already own). Past returns do not predict future returns.</p>
+</section>
+
+<aside aria-labelledby="det" style="flex: 1 1 360px; min-width: 0; background: #26160F; border: 1px solid #4A2C1D; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 12px; color: #C4A585">OP fund · Europe equity</p>
+<h2 id="det" style="margin: 0; font-family: 'Inter Tight', Inter, sans-serif; font-size: 22px; font-weight: 600">OP-Eurooppa Indeksi B</h2>
+<div style="display: flex; align-items: center; gap: 10px"><span style="padding: 3px 8px; border-radius: 6px; background: #2B1F3D; color: #C3AEF5; font-weight: 600">Watch</span><span style="color: #E3CBAE">confidence 55 %</span></div>
+<p style="margin: 0; line-height: 1.6; color: #EFDCC4">A steady six-month uptrend with shallow drops. It is cheap, and Europe is only 13 % of your portfolio against about 22 % in a world index.</p>
+<div style="padding: 14px; border-radius: 12px; background: #20130C">
+<p style="margin: 0; font-size: 12px; color: #C4A585">If you put €2 000 into it</p>
+<p style="margin: 4px 0 0; line-height: 1.5">US weight would fall from 54 % to 52 %, Europe would rise to 15 %. Equities would rise further over target, so fund it from savings only after rebalancing.</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" style="height: 40px; padding: 0 16px; border-radius: 10px; border: 0; background: #F5B32E; color: #1A0F0A; font: inherit; font-weight: 600">Add to watchlist</button>
+<button type="button" style="height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #4A2C1D; background: #26160F; font: inherit">Ask a follow-up</button>
+</div>
+<p style="margin: 0; font-size: 12px; color: #C4A585">Opinion, not financial advice. Saffron never places orders; you buy through OP yourself.</p>
+</aside>
+</div>
+</main>
+</div>
+</body>
+</html>
