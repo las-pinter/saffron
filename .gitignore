@@ -1,0 +1,28 @@
+# Rust
+/target/
+
+# Node / web
+node_modules/
+/web/dist/
+/web/storybook-static/
+*.tsbuildinfo
+
+# Local data and secrets
+/data/
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+!.env.example
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Test output
+/web/coverage/
+/web/playwright-report/
+/web/test-results/
