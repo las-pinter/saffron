@@ -1,0 +1,13 @@
+[package]
+name = "saffron-mcp"
+description = "Saffron MCP server: read-only tools for AI agents."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

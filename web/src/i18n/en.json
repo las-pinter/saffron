@@ -1,0 +1,16 @@
+{
+  "app": {
+    "name": "Saffron"
+  },
+  "nav": {
+    "label": "Main",
+    "overview": "Overview",
+    "holdings": "Holdings",
+    "discover": "Discover",
+    "aiDesk": "AI desk"
+  },
+  "placeholder": {
+    "title": "Saffron is being built",
+    "body": "This page is a placeholder. The features arrive milestone by milestone."
+  }
+}

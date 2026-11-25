@@ -1,0 +1,5 @@
+allowBuilds:
+  # esbuild verifies its platform binary on install (used by Vite).
+  esbuild: true
+  # Git hooks are installed explicitly by `just setup`.
+  lefthook: false

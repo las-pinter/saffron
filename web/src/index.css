@@ -1,0 +1,156 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+/*
+ * Saffron night theme. Values and roles are defined in docs/design/DESIGN.md.
+ * Raw tokens live on :root so a light theme can redefine them later.
+ * Tailwind utilities: Saffron tokens use the `sf-` prefix (bg-sf-surface, text-sf-gain);
+ * the unprefixed shadcn names (background, primary, accent, ...) map onto the same
+ * palette so shadcn/ui components render in the Saffron look. shadcn's `accent` means a
+ * subtle hover color, which is why the saffron gold is `sf-accent`, not `accent`.
+ */
+:root {
+  color-scheme: dark;
+
+  --sf-bg: #1a0f0a;
+  --sf-surface: #26160f;
+  --sf-surface-sunken: #20130c;
+  --sf-border: #4a2c1d;
+  --sf-divider: #3a2217;
+  --sf-text: #f6e7d3;
+  --sf-text-secondary: #e3cbae;
+  --sf-text-muted: #c4a585;
+  --sf-text-faint: #a88a6c;
+  --sf-accent: #f5b32e;
+  --sf-accent-strong: #f5a020;
+  --sf-accent-soft: #4d2410;
+  --sf-accent-on-soft: #ffc861;
+  --sf-on-accent: #1a0f0a;
+  --sf-crimson: #e8552b;
+  --sf-ai-surface: #4a1a0c;
+  --sf-ai-track: #5e2e1a;
+  --sf-ai-text: #fbebd6;
+  --sf-gain: #7bd3a6;
+  --sf-gain-soft: #163326;
+  --sf-loss: #ff8fa0;
+  --sf-loss-soft: #40161f;
+  --sf-warn-soft: #42260e;
+  --sf-crocus: #c3aef5;
+  --sf-crocus-soft: #2b1f3d;
+
+  --radius: 0.625rem;
+  --background: var(--sf-bg);
+  --foreground: var(--sf-text);
+  --card: var(--sf-surface);
+  --card-foreground: var(--sf-text);
+  --popover: var(--sf-surface);
+  --popover-foreground: var(--sf-text);
+  --primary: var(--sf-accent);
+  --primary-foreground: var(--sf-on-accent);
+  --secondary: var(--sf-surface-sunken);
+  --secondary-foreground: var(--sf-text);
+  --muted: var(--sf-surface-sunken);
+  --muted-foreground: var(--sf-text-muted);
+  --accent: var(--sf-accent-soft);
+  --accent-foreground: var(--sf-accent-on-soft);
+  --destructive: var(--sf-loss);
+  --border: var(--sf-border);
+  --input: var(--sf-border);
+  --ring: var(--sf-accent);
+  --chart-1: var(--sf-accent);
+  --chart-2: var(--sf-crocus);
+  --chart-3: var(--sf-gain);
+  --chart-4: var(--sf-crimson);
+  --chart-5: var(--sf-text-muted);
+}
+
+@theme inline {
+  --color-sf-bg: var(--sf-bg);
+  --color-sf-surface: var(--sf-surface);
+  --color-sf-surface-sunken: var(--sf-surface-sunken);
+  --color-sf-border: var(--sf-border);
+  --color-sf-divider: var(--sf-divider);
+  --color-sf-text: var(--sf-text);
+  --color-sf-text-secondary: var(--sf-text-secondary);
+  --color-sf-text-muted: var(--sf-text-muted);
+  --color-sf-text-faint: var(--sf-text-faint);
+  --color-sf-accent: var(--sf-accent);
+  --color-sf-accent-strong: var(--sf-accent-strong);
+  --color-sf-accent-soft: var(--sf-accent-soft);
+  --color-sf-accent-on-soft: var(--sf-accent-on-soft);
+  --color-sf-on-accent: var(--sf-on-accent);
+  --color-sf-crimson: var(--sf-crimson);
+  --color-sf-ai-surface: var(--sf-ai-surface);
+  --color-sf-ai-track: var(--sf-ai-track);
+  --color-sf-ai-text: var(--sf-ai-text);
+  --color-sf-gain: var(--sf-gain);
+  --color-sf-gain-soft: var(--sf-gain-soft);
+  --color-sf-loss: var(--sf-loss);
+  --color-sf-loss-soft: var(--sf-loss-soft);
+  --color-sf-warn-soft: var(--sf-warn-soft);
+  --color-sf-crocus: var(--sf-crocus);
+  --color-sf-crocus-soft: var(--sf-crocus-soft);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+
+  --font-sans: 'Inter Variable', system-ui, sans-serif;
+  --font-heading: 'Inter Tight Variable', 'Inter Variable', system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+  body {
+    @apply m-0 bg-background text-foreground;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  a {
+    color: var(--sf-accent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--sf-accent);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

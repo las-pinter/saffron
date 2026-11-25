@@ -36,6 +36,21 @@ Saffron never places orders and is not financial advice.
 
 The UI design guide and static mockups are in [`docs/design/`](docs/design/).
 
+## Development
+
+Requirements: Rust (the version in `rust-toolchain.toml`), Node 22 with pnpm,
+[just](https://github.com/casey/just), cargo-nextest, and cargo-deny.
+
+```sh
+just setup     # install web dependencies and git hooks
+just run       # API server on http://127.0.0.1:8640
+just dev-web   # web dev server, proxies /api to the API server
+just gate      # the full quality gate: format, types, lint, tests, deny, build
+```
+
+Work happens on `dev`; `main` receives changes only through pull requests from
+`dev`. Commit subjects follow Conventional Commits.
+
 ## License
 
 [MIT](LICENSE)
