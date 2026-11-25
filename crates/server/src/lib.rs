@@ -1,6 +1,7 @@
 //! The Saffron server: HTTP API and the embedded web application.
 
 mod health;
+pub mod healthcheck;
 mod static_files;
 
 use axum::{

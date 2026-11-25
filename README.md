@@ -36,6 +36,17 @@ Saffron never places orders and is not financial advice.
 
 The UI design guide and static mockups are in [`docs/design/`](docs/design/).
 
+## Running with Docker
+
+```sh
+docker compose up -d   # builds the image from this checkout; data goes to the saffron-data volume
+```
+
+Saffron listens on `127.0.0.1:8640` on the host. Reach it through Tailscale
+(`tailscale serve`) or a reverse proxy with HTTPS; do not expose it to the
+internet. The container runs as a non-root user on a read-only root
+filesystem, and `saffron healthcheck` is its built-in health probe.
+
 ## Development
 
 Requirements: Rust (the version in `rust-toolchain.toml`), Node 22 with pnpm,

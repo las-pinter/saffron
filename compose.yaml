@@ -1,0 +1,24 @@
+# Saffron with its data on a named volume.
+# The port is published on loopback only: put Tailscale (`tailscale serve`) or a
+# reverse proxy with HTTPS in front of it. Do not expose Saffron to the internet.
+name: saffron
+
+services:
+  saffron:
+    image: ghcr.io/las-pinter/saffron:latest
+    build: .
+    # Build from this checkout. Once releases exist, remove this line and run
+    # `docker compose pull` to use the published image instead.
+    pull_policy: build
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8640:8640"
+    volumes:
+      - saffron-data:/data
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  saffron-data:
