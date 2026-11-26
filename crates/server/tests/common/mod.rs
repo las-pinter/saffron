@@ -5,6 +5,7 @@
 
 pub mod authenticator;
 pub mod passkey_steps;
+pub mod portfolio_steps;
 
 use std::{
     net::SocketAddr,
@@ -68,6 +69,12 @@ impl TestApp {
             state,
             now,
         }
+    }
+
+    /// Serves `extra` routes beside the application, for probes of shared layers.
+    pub fn with_routes(mut self, extra: Router) -> Self {
+        self.router = extra.merge(saffron_server::app(self.state.clone()));
+        self
     }
 
     pub fn advance(&self, by: SignedDuration) {

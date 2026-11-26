@@ -5,6 +5,7 @@ pub mod clock;
 pub mod error;
 mod health;
 pub mod healthcheck;
+pub mod portfolios;
 pub mod request;
 pub mod secrets;
 pub mod security;
@@ -65,6 +66,18 @@ fn api(state: AppState) -> Router {
         .route("/auth/totp/setup", post(auth::totp::setup))
         .route("/auth/totp/confirm", post(auth::totp::confirm))
         .route("/auth/totp/disable", post(auth::totp::disable))
+        .route(
+            "/portfolios",
+            get(portfolios::list).post(portfolios::create),
+        )
+        .nest(
+            "/portfolios/{portfolio_id}",
+            portfolios::one_portfolio(state.clone()),
+        )
+        .route(
+            "/memberships/{portfolio_id}",
+            delete(portfolios::shares::leave),
+        )
         .route("/users", get(users::list).post(users::create))
         .route("/users/{id}/disable", post(users::disable))
         .route("/users/{id}/enable", post(users::enable))

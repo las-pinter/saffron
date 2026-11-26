@@ -5,6 +5,7 @@ pub mod audit;
 pub mod decimal;
 pub mod login_throttle;
 pub mod passkeys;
+pub mod portfolios;
 pub mod sessions;
 pub mod time;
 pub mod users;
