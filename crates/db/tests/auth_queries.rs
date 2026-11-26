@@ -1,4 +1,5 @@
-//! Queries behind sign-in: users, sessions, throttling, and the audit log.
+//! Queries behind sign-in: users, sessions, throttling, and the audit log. TOTP
+//! queries live in `totp_queries.rs`.
 
 use jiff::{SignedDuration, Timestamp};
 use saffron_db::{

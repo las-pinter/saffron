@@ -6,28 +6,23 @@ use axum::{
     http::{StatusCode, header::SET_COOKIE},
     response::{AppendHeaders, IntoResponse, Response},
 };
-use jiff::SignedDuration;
 use saffron_db::{
     audit, sessions,
     users::{self, NewUser, User},
 };
 use serde::{Deserialize, Serialize};
-use tokio::sync::{MutexGuard, SemaphorePermit};
 
 use super::{
     cookie,
     extract::{ClientSource, CurrentUser},
-    password, session,
-    throttle::{self, Verdict},
+    gate::{self, confirm_password},
+    password, session, throttle, totp,
 };
 use crate::{
     error::{ApiError, ApiResult},
     request::JsonBody,
     state::AppState,
-    users::{
-        MAX_USERNAME_CHARS, UserView, hash_new_password, record_audit, validate_display_name,
-        validate_username,
-    },
+    users::{UserView, hash_new_password, record_audit, validate_display_name, validate_username},
 };
 
 /// Body of `GET /api/auth/state`.
@@ -53,6 +48,9 @@ pub struct SetupRequest {
 pub struct LoginRequest {
     username: String,
     password: String,
+    /// The TOTP code, for a user who turned TOTP on.
+    #[serde(default)]
+    totp_code: Option<String>,
 }
 
 /// Body of `POST /api/auth/password`.
@@ -121,9 +119,9 @@ pub async fn login(
     ClientSource(source): ClientSource,
     JsonBody(request): JsonBody<LoginRequest>,
 ) -> ApiResult<Response> {
-    let username = throttle_key(&request.username);
+    let username = gate::throttle_key(&request.username);
     let username = username.as_str();
-    let _turn = sign_in_turn(&state, username, &source).await?;
+    let _turn = gate::sign_in_turn(&state, username, &source).await?;
     let now = state.clock.now();
 
     let user = users::by_username(&state.pool, username)
@@ -151,6 +149,10 @@ pub async fn login(
         ));
     };
 
+    if let Some(sealed) = user.totp_secret.as_deref() {
+        totp::check_second_factor(&state, &user, sealed, request.totp_code.as_deref(), &source)
+            .await?;
+    }
     throttle::record_success(&state.pool, &user.username).await?;
     record_audit(&state, user_entry(&user, "auth.login")).await;
     signed_in(&state, &user, StatusCode::OK).await
@@ -178,76 +180,12 @@ pub async fn change_password(
     JsonBody(request): JsonBody<ChangePasswordRequest>,
 ) -> ApiResult<StatusCode> {
     let user = &session.user;
-    let turn = sign_in_turn(&state, &user.username, &source).await?;
-    if !password::verify(request.current_password, user.password_hash.clone()).await {
-        throttle::record_failure(&state.pool, &user.username, &source, state.clock.now()).await?;
-        return Err(ApiError::forbidden(
-            "wrong_password",
-            "the current password is incorrect",
-        ));
-    }
-    throttle::record_success(&state.pool, &user.username).await?;
-    drop(turn);
+    confirm_password(&state, &source, user, request.current_password).await?;
     let password_hash = hash_new_password(request.new_password).await?;
     users::set_password_hash(&state.pool, user.id, &password_hash).await?;
     sessions::delete_for_user(&state.pool, user.id, Some(&session.token_hash)).await?;
     record_audit(&state, user_entry(user, "auth.change_password")).await;
     Ok(StatusCode::NO_CONTENT)
-}
-
-/// The submitted username as the throttle records it: trimmed, and cut to one
-/// character more than any valid username, so a huge value cannot bloat the table.
-fn throttle_key(raw: &str) -> String {
-    raw.trim().chars().take(MAX_USERNAME_CHARS + 1).collect()
-}
-
-/// Held while one password check and its outcome are recorded.
-struct SignInTurn<'a> {
-    _slot: SemaphorePermit<'a>,
-    _gate: MutexGuard<'a, ()>,
-}
-
-/// Waits for this request's turn to check a password, so parallel guesses cannot
-/// overshoot the lockout and only one Argon2 verification runs at a time.
-///
-/// A throttled client is refused before it joins the queue, and the queue is
-/// bounded, so a flood cannot hold up everyone else's sign-in for long.
-async fn sign_in_turn<'a>(
-    state: &'a AppState,
-    username: &str,
-    source: &str,
-) -> ApiResult<SignInTurn<'a>> {
-    refuse_if_throttled(state, username, source).await?;
-    let slot = state.sign_in_queue.try_acquire().map_err(|_| {
-        ApiError::too_many(
-            "sign_in_busy",
-            "too many sign-ins at once; try again shortly",
-            SignedDuration::from_secs(1),
-        )
-    })?;
-    let gate = state.sign_in_gate.lock().await;
-    // The pre-check is stale after the wait: failures recorded meanwhile count.
-    refuse_if_throttled(state, username, source).await?;
-    Ok(SignInTurn {
-        _slot: slot,
-        _gate: gate,
-    })
-}
-
-async fn refuse_if_throttled(state: &AppState, username: &str, source: &str) -> ApiResult<()> {
-    match throttle::check(&state.pool, username, source, state.clock.now()).await? {
-        Verdict::Allowed => Ok(()),
-        Verdict::AccountLocked { retry_after } => Err(ApiError::too_many(
-            "account_locked",
-            "too many failed sign-ins; this account is locked for a while",
-            retry_after,
-        )),
-        Verdict::SourceThrottled { retry_after } => Err(ApiError::too_many(
-            "too_many_attempts",
-            "too many failed sign-ins from this device; try again later",
-            retry_after,
-        )),
-    }
 }
 
 async fn signed_in(state: &AppState, user: &User, status: StatusCode) -> ApiResult<Response> {

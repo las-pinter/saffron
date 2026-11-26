@@ -6,6 +6,7 @@ pub mod error;
 mod health;
 pub mod healthcheck;
 pub mod request;
+pub mod secrets;
 pub mod security;
 pub mod state;
 mod static_files;
@@ -43,10 +44,14 @@ fn api(state: AppState) -> Router {
         .route("/auth/login", post(auth::routes::login))
         .route("/auth/logout", post(auth::routes::logout))
         .route("/auth/password", post(auth::routes::change_password))
+        .route("/auth/totp/setup", post(auth::totp::setup))
+        .route("/auth/totp/confirm", post(auth::totp::confirm))
+        .route("/auth/totp/disable", post(auth::totp::disable))
         .route("/users", get(users::list).post(users::create))
         .route("/users/{id}/disable", post(users::disable))
         .route("/users/{id}/enable", post(users::enable))
         .route("/users/{id}/password", post(users::reset_password))
+        .route("/users/{id}/totp/reset", post(auth::totp::reset))
         .fallback(api_not_found)
         .layer(middleware::from_fn_with_state(
             state.clone(),

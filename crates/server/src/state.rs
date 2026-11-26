@@ -9,6 +9,7 @@ use tokio::sync::{Mutex, Semaphore};
 use crate::{
     auth::{client::TrustedProxy, origin::PublicOrigin, setup::SetupToken},
     clock::Clock,
+    secrets::SecretBox,
 };
 
 /// Handles to the database and the services the handlers need.
@@ -20,6 +21,8 @@ pub struct AppState {
     pub origin: Arc<PublicOrigin>,
     /// The source of the current time.
     pub clock: Clock,
+    /// Seals secrets stored in the database.
+    pub secrets: Arc<SecretBox>,
     /// The first-run setup token.
     pub setup: Arc<SetupToken>,
     /// Proxies whose `X-Forwarded-For` header names the client.
@@ -36,13 +39,14 @@ pub struct AppState {
 pub const MAX_QUEUED_SIGN_INS: usize = 16;
 
 impl AppState {
-    /// State over `pool` for `origin`.
+    /// State over `pool` for `origin`, sealing secrets with `secrets`.
     #[must_use]
-    pub fn new(pool: SqlitePool, origin: PublicOrigin, clock: Clock) -> Self {
+    pub fn new(pool: SqlitePool, origin: PublicOrigin, clock: Clock, secrets: SecretBox) -> Self {
         Self {
             pool,
             origin: Arc::new(origin),
             clock,
+            secrets: Arc::new(secrets),
             setup: Arc::new(SetupToken::default()),
             trusted_proxies: Arc::new([]),
             sign_in_gate: Arc::new(Mutex::new(())),

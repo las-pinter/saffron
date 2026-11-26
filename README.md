@@ -72,6 +72,13 @@ Settings, all optional, as environment variables (see `compose.yaml`):
 | `SAFFRON_BIND` | `127.0.0.1:8640` (`0.0.0.0:8640` in the image) | Listen address. |
 | `SAFFRON_DATA_DIR` | `data` (`/data` in the image) | Database directory. |
 
+### Backups
+
+Back up the whole data directory. Besides the database, it holds `secret.key`,
+the key that encrypts stored secrets such as two-factor seeds. Keep the two
+together: Saffron refuses to start when the database holds such secrets but
+`secret.key` is missing or is not the key that sealed them.
+
 ## Development
 
 Requirements: Rust (the version in `rust-toolchain.toml`), Node 22 with pnpm,

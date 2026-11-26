@@ -71,6 +71,7 @@ async fn created_users_are_listed_without_secrets() {
             "display_name": "member",
             "is_admin": false,
             "disabled": false,
+            "totp_enabled": false,
         })
     );
 }

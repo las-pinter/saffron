@@ -20,6 +20,10 @@ pub struct User {
     pub password_hash: Option<String>,
     /// Encrypted TOTP secret; `None` when TOTP is off.
     pub totp_secret: Option<String>,
+    /// Encrypted TOTP secret awaiting its first code during enrolment.
+    pub totp_pending: Option<String>,
+    /// Last accepted TOTP time step.
+    pub totp_last_step: Option<i64>,
     /// When the account was disabled; `None` while it is active.
     pub disabled_at: Option<String>,
 }
@@ -49,7 +53,8 @@ pub struct NewUser<'a> {
 macro_rules! select_users {
     ($tail:literal) => {
         concat!(
-            "SELECT id, username, display_name, is_admin, password_hash, totp_secret, disabled_at
+            "SELECT id, username, display_name, is_admin, password_hash, totp_secret,
+                    totp_pending, totp_last_step, disabled_at
              FROM users ",
             $tail
         )
@@ -61,6 +66,18 @@ pub async fn count(pool: &SqlitePool) -> Result<i64, sqlx::Error> {
     sqlx::query_scalar("SELECT count(*) FROM users")
         .fetch_one(pool)
         .await
+}
+
+/// Any one sealed TOTP secret, enabled or pending, with its user's id; `None` when
+/// nobody holds one.
+pub async fn a_sealed_secret(pool: &SqlitePool) -> Result<Option<(i64, String)>, sqlx::Error> {
+    sqlx::query_as(
+        "SELECT id, coalesce(totp_secret, totp_pending) FROM users
+         WHERE totp_secret IS NOT NULL OR totp_pending IS NOT NULL
+         LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await
 }
 
 /// Creates a user and returns its id.
@@ -155,5 +172,70 @@ pub async fn set_disabled(
         .bind(id)
         .execute(pool)
         .await?;
+    Ok(result.rows_affected() == 1)
+}
+
+/// Stores, or with `None` discards, the secret offered during TOTP enrolment.
+/// Returns whether the user exists.
+pub async fn set_totp_pending(
+    pool: &SqlitePool,
+    id: i64,
+    sealed: Option<&str>,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query("UPDATE users SET totp_pending = ? WHERE id = ?")
+        .bind(sealed)
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(result.rows_affected() == 1)
+}
+
+/// Turns TOTP on with `sealed` as the secret, recording `step` as used.
+///
+/// Only while `sealed` is still the pending secret and TOTP is off, so a parallel
+/// `setup` that replaced it is never enabled unseen; `false` otherwise.
+pub async fn enable_totp(
+    pool: &SqlitePool,
+    id: i64,
+    sealed: &str,
+    step: i64,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query(
+        "UPDATE users SET totp_secret = ?, totp_pending = NULL, totp_last_step = ?
+         WHERE id = ? AND totp_pending = ? AND totp_secret IS NULL",
+    )
+    .bind(sealed)
+    .bind(step)
+    .bind(id)
+    .bind(sealed)
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() == 1)
+}
+
+/// Turns TOTP off and forgets any pending enrolment.
+pub async fn disable_totp(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query(
+        "UPDATE users SET totp_secret = NULL, totp_pending = NULL, totp_last_step = NULL
+         WHERE id = ?",
+    )
+    .bind(id)
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() == 1)
+}
+
+/// Records `step` as used, in one statement; returns `false` when that step or a
+/// later one was already used, so a code is never accepted twice.
+pub async fn claim_totp_step(pool: &SqlitePool, id: i64, step: i64) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query(
+        "UPDATE users SET totp_last_step = ?
+         WHERE id = ? AND (totp_last_step IS NULL OR totp_last_step < ?)",
+    )
+    .bind(step)
+    .bind(id)
+    .bind(step)
+    .execute(pool)
+    .await?;
     Ok(result.rows_affected() == 1)
 }

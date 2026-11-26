@@ -34,6 +34,8 @@ pub struct UserView {
     pub is_admin: bool,
     /// Whether the account is disabled.
     pub disabled: bool,
+    /// Whether password sign-in also needs a TOTP code.
+    pub totp_enabled: bool,
 }
 
 impl From<&User> for UserView {
@@ -44,6 +46,7 @@ impl From<&User> for UserView {
             display_name: user.display_name.clone(),
             is_admin: user.is_admin,
             disabled: !user.is_active(),
+            totp_enabled: user.totp_secret.is_some(),
         }
     }
 }

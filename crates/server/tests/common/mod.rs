@@ -58,7 +58,8 @@ impl TestApp {
         let origin = PublicOrigin::parse(origin).expect("origin");
         let proxies =
             saffron_server::auth::client::parse_trusted_proxies(proxies).expect("trusted proxies");
-        let state = AppState::new(pool, origin, clock).with_trusted_proxies(proxies);
+        let secrets = saffron_server::secrets::SecretBox::random().expect("secret key");
+        let state = AppState::new(pool, origin, clock, secrets).with_trusted_proxies(proxies);
         Self {
             router: saffron_server::app(state.clone()),
             state,

@@ -7,6 +7,7 @@ use saffron_server::{
     AppState,
     auth::{client::parse_trusted_proxies, origin::PublicOrigin},
     clock::Clock,
+    secrets::{SecretBox, totp_purpose},
 };
 use tracing_subscriber::EnvFilter;
 
@@ -63,8 +64,20 @@ async fn serve(addr: SocketAddr) -> anyhow::Result<()> {
         .with_context(|| format!("cannot open the database {}", database.display()))?;
     tracing::info!(database = %database.display(), "database ready");
 
-    let state =
-        AppState::new(pool.clone(), origin, Clock::system()).with_trusted_proxies(trusted_proxies);
+    // The key sits beside the database; back up both, or sealed secrets are lost.
+    let key_file = data_dir.join(saffron_server::secrets::KEY_FILE);
+    let stored = saffron_db::users::a_sealed_secret(&pool)
+        .await
+        .context("cannot read a sealed secret from the database")?
+        .map(|(user_id, sealed)| (sealed, totp_purpose(user_id)));
+    let stored = stored
+        .as_ref()
+        .map(|(sealed, purpose)| (sealed.as_str(), purpose.as_str()));
+    let secrets = SecretBox::load_or_create(&key_file, stored)
+        .await
+        .with_context(|| format!("cannot load the secret key {}", key_file.display()))?;
+    let state = AppState::new(pool.clone(), origin, Clock::system(), secrets)
+        .with_trusted_proxies(trusted_proxies);
     announce_setup(&state).await?;
     tracing::info!(%addr, origin = %state.origin.as_str(), "saffron listening");
 
