@@ -11,8 +11,12 @@ publish = false
 
 [workspace.dependencies]
 anyhow = "1.0.104"
-axum = "0.8.9"
+argon2 = "0.6.0"
+axum = { version = "0.8.9", features = ["macros"] }
+base64 = "0.23.1"
+getrandom = "0.4.3"
 http-body-util = "0.1.5"
+jiff = "1.0.3"
 mime_guess = "2.0.5"
 rust_decimal = "1.43.0"
 rust-embed = "8.14.0"
@@ -23,13 +27,15 @@ saffron-market = { path = "crates/market" }
 saffron-mcp = { path = "crates/mcp" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
+sha2 = "0.11.2"
 sqlx = { version = "0.9.1", default-features = false, features = ["macros", "migrate", "runtime-tokio", "sqlite"] }
 tempfile = "3.27.0"
 thiserror = "2.0.21"
-tokio = { version = "1.54.1", features = ["fs", "io-util", "macros", "net", "rt-multi-thread", "signal", "time"] }
+tokio = { version = "1.54.1", features = ["fs", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 tower = "0.5.3"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+url = "2.5.9"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

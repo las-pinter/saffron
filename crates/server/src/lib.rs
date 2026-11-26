@@ -1,34 +1,58 @@
 //! The Saffron server: HTTP API and the embedded web application.
 
+pub mod auth;
+pub mod clock;
+pub mod error;
 mod health;
 pub mod healthcheck;
+pub mod request;
+pub mod security;
+pub mod state;
 mod static_files;
+pub mod users;
 
 use axum::{
     Router,
     http::StatusCode,
-    routing::{any, get},
+    middleware,
+    routing::{any, get, post},
 };
 
 pub use health::HealthResponse;
+pub use state::AppState;
 
 /// Builds the HTTP router: the API under `/api`, the web application for every other
-/// GET or HEAD request.
-pub fn app() -> Router {
+/// GET or HEAD request, and security headers on every response.
+pub fn app(state: AppState) -> Router {
     Router::new()
-        .nest("/api", api())
+        .nest("/api", api(state.clone()))
         // A nested router does not match the trailing-slash form of its own prefix.
         .route("/api/", any(api_not_found))
         // `get` also answers HEAD; other methods on non-API paths get 405.
         .fallback_service(get(static_files::spa))
+        .layer(middleware::from_fn_with_state(state, security::headers))
 }
 
 /// Every path under `/api`, including `/api` itself, stays in this router, so API
 /// clients never receive `index.html`.
-fn api() -> Router {
+fn api(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health::health))
+        .route("/auth/state", get(auth::routes::state))
+        .route("/auth/setup", post(auth::routes::setup))
+        .route("/auth/login", post(auth::routes::login))
+        .route("/auth/logout", post(auth::routes::logout))
+        .route("/auth/password", post(auth::routes::change_password))
+        .route("/users", get(users::list).post(users::create))
+        .route("/users/{id}/disable", post(users::disable))
+        .route("/users/{id}/enable", post(users::enable))
+        .route("/users/{id}/password", post(users::reset_password))
         .fallback(api_not_found)
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            security::guard_api,
+        ))
+        .with_state(state)
 }
 
 #[allow(clippy::unused_async)]

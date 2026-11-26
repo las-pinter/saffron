@@ -47,6 +47,31 @@ Saffron listens on `127.0.0.1:8640` on the host. Reach it through Tailscale
 internet. The container runs as a non-root user on a read-only root
 filesystem, and `saffron healthcheck` is its built-in health probe.
 
+On the first start, the log prints a one-time link that creates the
+administrator account:
+
+```sh
+docker compose logs saffron | grep setup
+```
+
+The setup page itself arrives with the web interface. Until then, create the
+administrator with the token from that link:
+
+```sh
+curl -X POST http://localhost:8640/api/auth/setup \
+  -H 'Origin: http://localhost:8640' -H 'Content-Type: application/json' \
+  -d '{"token":"<token>","username":"admin","display_name":"Admin","password":"<at least 12 characters>"}'
+```
+
+Settings, all optional, as environment variables (see `compose.yaml`):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SAFFRON_PUBLIC_URL` | `http://localhost:8640` | The HTTPS URL the browser uses. Required for any access other than localhost: cookies, the cross-site request check, and passkeys are bound to it. |
+| `SAFFRON_TRUSTED_PROXIES` | none | Comma-separated addresses or CIDR ranges of proxies whose `X-Forwarded-For` header names the client, for per-client sign-in throttling. |
+| `SAFFRON_BIND` | `127.0.0.1:8640` (`0.0.0.0:8640` in the image) | Listen address. |
+| `SAFFRON_DATA_DIR` | `data` (`/data` in the image) | Database directory. |
+
 ## Development
 
 Requirements: Rust (the version in `rust-toolchain.toml`), Node 22 with pnpm,

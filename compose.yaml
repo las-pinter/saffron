@@ -13,6 +13,16 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:8640:8640"
+    environment:
+      # The HTTPS URL the browser uses, such as your `tailscale serve` address.
+      # Required for any access other than http://localhost:8640: sign-in cookies,
+      # the cross-site request check, and passkeys are bound to it.
+      # SAFFRON_PUBLIC_URL: "https://saffron.your-tailnet.ts.net"
+      #
+      # Behind Docker's published port every request arrives from the network
+      # gateway. Trust that range so `X-Forwarded-For` from your proxy names the
+      # real client; without it, failed sign-ins from anyone throttle everyone.
+      # SAFFRON_TRUSTED_PROXIES: "172.16.0.0/12"
     volumes:
       - saffron-data:/data
     read_only: true

@@ -122,6 +122,8 @@ async fn migrations_create_every_table() {
             "fx_rates",
             "instrument_listings",
             "instruments",
+            "login_failures",
+            "login_locks",
             "passkeys",
             "portfolio_shares",
             "portfolios",

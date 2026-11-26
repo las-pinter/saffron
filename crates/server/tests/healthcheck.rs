@@ -3,6 +3,8 @@
 use std::net::SocketAddr;
 
 use saffron_server::healthcheck::probe;
+
+mod common;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpListener,
@@ -31,7 +33,9 @@ async fn answer_once(listener: TcpListener, status_line: &'static str) {
 #[tokio::test]
 async fn probe_succeeds_against_the_running_app() {
     let (listener, addr) = local_listener().await;
-    tokio::spawn(async move { axum::serve(listener, saffron_server::app()).await });
+    let app = common::TestApp::new().await;
+    let router = saffron_server::app(app.state.clone());
+    tokio::spawn(async move { axum::serve(listener, router).await });
 
     let result = probe(addr).await;
 

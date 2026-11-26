@@ -2,12 +2,9 @@
 
 use std::path::Path;
 
-use axum::{
-    body::Body,
-    http::{Method, Request, StatusCode, header},
-};
-use http_body_util::BodyExt;
-use tower::ServiceExt;
+use axum::http::{Method, StatusCode};
+
+mod common;
 
 struct Reply {
     status: StatusCode,
@@ -16,32 +13,11 @@ struct Reply {
 }
 
 async fn send(method: Method, path: &str) -> Reply {
-    let request = Request::builder()
-        .method(method)
-        .uri(path)
-        .body(Body::empty())
-        .expect("valid request");
-    let response = saffron_server::app()
-        .oneshot(request)
-        .await
-        .expect("router answers");
-    let status = response.status();
-    let content_type = response
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_owned);
-    let body = response
-        .into_body()
-        .collect()
-        .await
-        .expect("body reads")
-        .to_bytes()
-        .to_vec();
+    let reply = common::TestApp::new().await.call(method, path).send().await;
     Reply {
-        status,
-        content_type,
-        body,
+        status: reply.status,
+        content_type: reply.header("content-type").map(str::to_owned),
+        body: reply.body,
     }
 }
 

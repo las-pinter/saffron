@@ -3,6 +3,11 @@
 use std::{net::SocketAddr, path::PathBuf};
 
 use anyhow::Context;
+use saffron_server::{
+    AppState,
+    auth::{client::parse_trusted_proxies, origin::PublicOrigin},
+    clock::Clock,
+};
 use tracing_subscriber::EnvFilter;
 
 /// Loopback by default: Saffron is meant to sit behind a VPN or reverse proxy.
@@ -36,6 +41,12 @@ async fn serve(addr: SocketAddr) -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
 
+    let origin = PublicOrigin::from_env().context("SAFFRON_PUBLIC_URL is not usable")?;
+    let trusted_proxies =
+        parse_trusted_proxies(&std::env::var("SAFFRON_TRUSTED_PROXIES").unwrap_or_default())
+            .map_err(anyhow::Error::msg)
+            .context("SAFFRON_TRUSTED_PROXIES is not usable")?;
+
     // Bind first: a busy port then fails before the database is opened.
     let listener = tokio::net::TcpListener::bind(addr)
         .await
@@ -51,15 +62,35 @@ async fn serve(addr: SocketAddr) -> anyhow::Result<()> {
         .await
         .with_context(|| format!("cannot open the database {}", database.display()))?;
     tracing::info!(database = %database.display(), "database ready");
-    tracing::info!(%addr, "saffron listening");
 
-    let served = axum::serve(listener, saffron_server::app())
+    let state =
+        AppState::new(pool.clone(), origin, Clock::system()).with_trusted_proxies(trusted_proxies);
+    announce_setup(&state).await?;
+    tracing::info!(%addr, origin = %state.origin.as_str(), "saffron listening");
+
+    let app = saffron_server::app(state).into_make_service_with_connect_info::<SocketAddr>();
+    let served = axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await
         .context("server stopped with an error");
     // Closing checkpoints the WAL into the database file.
     pool.close().await;
     served
+}
+
+/// While no user exists, logs a one-time link that creates the first administrator.
+async fn announce_setup(state: &AppState) -> anyhow::Result<()> {
+    if saffron_db::users::count(&state.pool).await? > 0 {
+        return Ok(());
+    }
+    let token = state.setup.issue()?;
+    // The token rides in the fragment, which browsers never send to a server or put
+    // in a Referer header.
+    tracing::warn!(
+        "no users yet; create the administrator at {}/setup#token={token}",
+        state.origin.as_str()
+    );
+    Ok(())
 }
 
 async fn shutdown_signal() {

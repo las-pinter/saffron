@@ -1,7 +1,12 @@
 //! SQLite storage for Saffron: connection pool, embedded migrations, and the column
 //! encodings shared by every query.
 
+pub mod audit;
 pub mod decimal;
+pub mod login_throttle;
+pub mod sessions;
+pub mod time;
+pub mod users;
 
 use std::{path::Path, time::Duration};
 
@@ -52,6 +57,12 @@ pub enum StorageError {
         #[source]
         source: std::io::Error,
     },
+}
+
+/// Whether `error` is a UNIQUE or PRIMARY KEY constraint violation.
+#[must_use]
+pub fn is_unique_violation(error: &sqlx::Error) -> bool {
+    matches!(error, sqlx::Error::Database(database) if database.is_unique_violation())
 }
 
 /// Opens the database at `path`, creating it and its directory when missing, and runs
