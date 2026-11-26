@@ -118,3 +118,41 @@ async fn a_user_without_access_never_reaches_the_handler() {
         (StatusCode::NOT_FOUND, StatusCode::NOT_FOUND)
     );
 }
+
+async fn archive(app: &TestApp, id: &Value) {
+    let at = "2026-11-26T12:00:00Z".parse().expect("timestamp");
+    saffron_db::portfolios::set_archived(&app.state.pool, id.as_i64().expect("id"), Some(at))
+        .await
+        .expect("archive");
+}
+
+#[tokio::test]
+async fn an_editor_cannot_write_to_an_archived_portfolio() {
+    let (app, member, id) = probed(Some("editor")).await;
+    archive(&app, &id).await;
+
+    let reply = app
+        .post(&format!("/probe/{id}"))
+        .cookie(&member)
+        .send()
+        .await;
+
+    assert_eq!(
+        (reply.status, reply.json()["error"].clone()),
+        (StatusCode::CONFLICT, json!("archived"))
+    );
+}
+
+#[tokio::test]
+async fn an_archived_portfolio_can_still_be_read() {
+    let (app, member, id) = probed(Some("editor")).await;
+    archive(&app, &id).await;
+
+    let reply = app
+        .get(&format!("/probe/{id}"))
+        .cookie(&member)
+        .send()
+        .await;
+
+    assert_eq!(reply.status, StatusCode::OK);
+}

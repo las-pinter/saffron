@@ -239,14 +239,16 @@ async fn archiving_and_restoring_set_and_clear_the_archive_time() {
         .post(&format!("/api/portfolios/{id}/unarchive"))
         .cookie(&admin)
         .send()
-        .await
-        .json();
+        .await;
 
     assert_eq!(
         archived["archived_at"],
         json!(saffron_db::time::to_text(app.state.clock.now()))
     );
-    assert_eq!(restored["archived_at"], Value::Null);
+    assert_eq!(
+        (restored.status, restored.json()["archived_at"].clone()),
+        (StatusCode::OK, Value::Null)
+    );
 }
 
 #[tokio::test]
@@ -290,4 +292,23 @@ async fn archiving_an_archived_portfolio_is_audited_once() {
             .await
             .expect("audit");
     assert_eq!((again.status, archives), (StatusCode::OK, 1));
+}
+
+#[tokio::test]
+async fn an_archived_portfolio_cannot_be_renamed() {
+    let Household { app, admin, .. } = household().await;
+    let id = portfolio(&app, &admin, "Main").await;
+    app.post(&format!("/api/portfolios/{id}/archive"))
+        .cookie(&admin)
+        .send()
+        .await;
+
+    let reply = app
+        .call(Method::PATCH, &format!("/api/portfolios/{id}"))
+        .cookie(&admin)
+        .json(json!({ "name": "Renamed" }))
+        .send()
+        .await;
+
+    assert_eq!(error(&reply), (StatusCode::CONFLICT, json!("archived")));
 }

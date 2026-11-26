@@ -2,14 +2,16 @@
 //!
 //! The check is a layer on that whole subtree, so a route added there later cannot
 //! skip it. A user who neither owns the portfolio nor has it shared with them gets
-//! 404, as if it did not exist; a viewer gets 403 on any method that writes.
+//! 404, as if it did not exist; a viewer gets 403 on any method that writes. An
+//! archived portfolio is read-only: every write gets 409 except archiving and
+//! restoring it.
 //! Handlers read the outcome through [`PortfolioAccess`], and owner-only actions
 //! ask for [`Role::Owner`] themselves.
 
 use std::sync::Arc;
 
 use axum::{
-    extract::{FromRequestParts, RawPathParams, Request, State},
+    extract::{FromRequestParts, MatchedPath, RawPathParams, Request, State},
     http::{Method, request::Parts},
     middleware::Next,
     response::Response,
@@ -24,6 +26,8 @@ use crate::{
 
 /// The path parameter that names the portfolio.
 pub const PARAM: &str = "portfolio_id";
+/// Route endings that stay open on an archived portfolio, so it can be restored.
+const ARCHIVE_SWITCHES: [&str; 2] = ["/archive", "/unarchive"];
 
 /// The signed-in user's access to the portfolio in the path, set by [`guard`].
 #[derive(Debug, Clone)]
@@ -78,9 +82,26 @@ pub async fn guard(
     let access = PortfolioAccess(Arc::new(access));
     if !is_read(request.method()) {
         access.require(Role::Editor)?;
+        if access.0.portfolio.archived_at.is_some() && !switches_archive(&request) {
+            return Err(ApiError::conflict(
+                "archived",
+                "the portfolio is archived; restore it to change it",
+            ));
+        }
     }
     request.extensions_mut().insert(access);
     Ok(next.run(request).await)
+}
+
+fn switches_archive(request: &Request) -> bool {
+    request
+        .extensions()
+        .get::<MatchedPath>()
+        .is_some_and(|path| {
+            ARCHIVE_SWITCHES
+                .iter()
+                .any(|end| path.as_str().ends_with(end))
+        })
 }
 
 fn is_read(method: &Method) -> bool {
