@@ -16,7 +16,7 @@ use totp_rs::{Algorithm, Builder, Secret, Totp};
 
 use super::{
     extract::{AdminUser, ClientSource, CurrentUser},
-    gate::confirm_password,
+    gate::{confirm_password, confirm_password_and_code},
     throttle,
 };
 use crate::{
@@ -32,10 +32,19 @@ pub const ISSUER: &str = "Saffron";
 /// Secret length in bytes (160 bits, as RFC 4226 recommends).
 const SEED_BYTES: usize = 20;
 
-/// Body of `POST /api/auth/totp/setup` and `POST /api/auth/totp/disable`.
+/// Body of `POST /api/auth/totp/setup`.
 #[derive(Debug, Deserialize)]
 pub struct PasswordRequest {
     password: String,
+}
+
+/// Body of `POST /api/auth/totp/disable`.
+#[derive(Debug, Deserialize)]
+pub struct DisableRequest {
+    password: String,
+    /// A current code; needed while TOTP is on.
+    #[serde(default)]
+    code: Option<String>,
 }
 
 /// Body of `POST /api/auth/totp/confirm`.
@@ -141,15 +150,24 @@ pub async fn confirm(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// `POST /api/auth/totp/disable`: turns TOTP off. Needs the current password.
+/// `POST /api/auth/totp/disable`: turns TOTP off. Needs the current password and,
+/// while TOTP is on, a current code, so the password alone cannot remove the second
+/// factor.
 pub async fn disable(
     State(state): State<AppState>,
     ClientSource(source): ClientSource,
     CurrentUser(session): CurrentUser,
-    JsonBody(request): JsonBody<PasswordRequest>,
+    JsonBody(request): JsonBody<DisableRequest>,
 ) -> ApiResult<StatusCode> {
     let user = &session.user;
-    confirm_password(&state, &source, user, request.password).await?;
+    confirm_password_and_code(
+        &state,
+        &source,
+        user,
+        request.password,
+        request.code.as_deref(),
+    )
+    .await?;
     users::disable_totp(&state.pool, user.id).await?;
     record_audit(&state, entry(user, user, "auth.totp_disable")).await;
     Ok(StatusCode::NO_CONTENT)

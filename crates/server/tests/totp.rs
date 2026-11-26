@@ -64,6 +64,14 @@ async fn login_with_code(app: &TestApp, code: Option<&str>) -> common::Reply {
         .await
 }
 
+async fn disable(app: &TestApp, cookie: &str, password: &str, code: Option<&str>) -> common::Reply {
+    app.post("/api/auth/totp/disable")
+        .cookie(cookie)
+        .json(json!({ "password": password, "code": code }))
+        .send()
+        .await
+}
+
 async fn totp_enabled(app: &TestApp, cookie: &str) -> Value {
     app.get("/api/auth/state")
         .cookie(cookie)
@@ -294,15 +302,53 @@ async fn disable_needs_the_current_password() {
 #[tokio::test]
 async fn disable_turns_totp_off() {
     let app = TestApp::new().await;
+    let (cookie, secret) = admin_with_totp(&app).await;
+    next_step(&app);
+
+    let reply = disable(&app, &cookie, ADMIN_PASSWORD, Some(&code(&app, &secret))).await;
+
+    assert_eq!(reply.status, StatusCode::NO_CONTENT);
+    assert_eq!(login_with_code(&app, None).await.status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn disable_needs_a_current_code() {
+    let app = TestApp::new().await;
     let (cookie, _) = admin_with_totp(&app).await;
 
-    app.post("/api/auth/totp/disable")
-        .cookie(&cookie)
-        .json(json!({ "password": ADMIN_PASSWORD }))
-        .send()
-        .await;
+    let reply = disable(&app, &cookie, ADMIN_PASSWORD, None).await;
 
-    assert_eq!(login_with_code(&app, None).await.status, StatusCode::OK);
+    assert_eq!(
+        (reply.status, reply.json()["error"].clone()),
+        (StatusCode::UNAUTHORIZED, json!("totp_required"))
+    );
+    assert_eq!(totp_enabled(&app, &cookie).await, json!(true));
+}
+
+#[tokio::test]
+async fn disable_refuses_a_wrong_code() {
+    let app = TestApp::new().await;
+    let (cookie, _) = admin_with_totp(&app).await;
+    next_step(&app);
+
+    let reply = disable(&app, &cookie, ADMIN_PASSWORD, Some("000000")).await;
+
+    assert_eq!(reply.json()["error"], json!("invalid_code"));
+    assert_eq!(totp_enabled(&app, &cookie).await, json!(true));
+}
+
+#[tokio::test]
+async fn wrong_codes_to_disable_count_toward_the_lockout_despite_the_right_password() {
+    let app = TestApp::new().await;
+    let (cookie, secret) = admin_with_totp(&app).await;
+    next_step(&app);
+    for _ in 0..5 {
+        disable(&app, &cookie, ADMIN_PASSWORD, Some("000000")).await;
+    }
+
+    let reply = disable(&app, &cookie, ADMIN_PASSWORD, Some(&code(&app, &secret))).await;
+
+    assert_eq!(reply.json()["error"], json!("account_locked"));
 }
 
 #[tokio::test]

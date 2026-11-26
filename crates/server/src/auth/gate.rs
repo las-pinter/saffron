@@ -7,6 +7,7 @@ use tokio::sync::{MutexGuard, SemaphorePermit};
 use super::{
     password,
     throttle::{self, Verdict},
+    totp,
 };
 use crate::{
     error::{ApiError, ApiResult},
@@ -80,13 +81,42 @@ pub async fn confirm_password(
     password: String,
 ) -> ApiResult<()> {
     let _turn = sign_in_turn(state, &user.username, source).await?;
-    if !password::verify(password, user.password_hash.clone()).await {
-        throttle::record_failure(&state.pool, &user.username, source, state.clock.now()).await?;
-        return Err(ApiError::forbidden(
-            "wrong_password",
-            "the current password is incorrect",
-        ));
+    check_password(state, source, user, password).await?;
+    throttle::record_success(&state.pool, &user.username).await?;
+    Ok(())
+}
+
+/// Like [`confirm_password`], and also checks a TOTP code when the user has TOTP
+/// on. Failures are cleared only once both match, so a known password cannot
+/// guess codes past the lockout.
+pub async fn confirm_password_and_code(
+    state: &AppState,
+    source: &str,
+    user: &User,
+    password: String,
+    code: Option<&str>,
+) -> ApiResult<()> {
+    let _turn = sign_in_turn(state, &user.username, source).await?;
+    check_password(state, source, user, password).await?;
+    if let Some(sealed) = user.totp_secret.as_deref() {
+        totp::check_second_factor(state, user, sealed, code, source).await?;
     }
     throttle::record_success(&state.pool, &user.username).await?;
     Ok(())
+}
+
+async fn check_password(
+    state: &AppState,
+    source: &str,
+    user: &User,
+    password: String,
+) -> ApiResult<()> {
+    if password::verify(password, user.password_hash.clone()).await {
+        return Ok(());
+    }
+    throttle::record_failure(&state.pool, &user.username, source, state.clock.now()).await?;
+    Err(ApiError::forbidden(
+        "wrong_password",
+        "the current password is incorrect",
+    ))
 }
