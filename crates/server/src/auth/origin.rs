@@ -6,6 +6,7 @@
 
 use thiserror::Error;
 use url::{Host, Url};
+use webauthn_rs::prelude::{Webauthn, WebauthnBuilder};
 
 /// The origin when `SAFFRON_PUBLIC_URL` is unset: the default listen address.
 pub const DEFAULT_PUBLIC_URL: &str = "http://localhost:8640";
@@ -68,6 +69,22 @@ impl PublicOrigin {
     #[must_use]
     pub fn as_str(&self) -> String {
         serialize(&self.url)
+    }
+
+    /// The passkey relying party for this origin, or `None` when the host is an IP
+    /// address, which `WebAuthn` does not accept as a relying party id.
+    ///
+    /// On the localhost origin any port is accepted, as in [`Self::accepts`], so the
+    /// Vite dev server can register and use passkeys.
+    #[must_use]
+    pub fn relying_party(&self) -> Option<Webauthn> {
+        let rp_id = self.url.domain()?;
+        WebauthnBuilder::new(rp_id, &self.url)
+            .ok()?
+            .rp_name("Saffron")
+            .allow_any_port(!self.is_https())
+            .build()
+            .ok()
     }
 
     /// Whether the browser reaches Saffron over HTTPS.

@@ -5,9 +5,12 @@ use std::sync::Arc;
 use sqlx::SqlitePool;
 
 use tokio::sync::{Mutex, Semaphore};
+use webauthn_rs::prelude::Webauthn;
 
 use crate::{
-    auth::{client::TrustedProxy, origin::PublicOrigin, setup::SetupToken},
+    auth::{
+        ceremony::CeremonyStore, client::TrustedProxy, origin::PublicOrigin, setup::SetupToken,
+    },
     clock::Clock,
     secrets::SecretBox,
 };
@@ -23,6 +26,10 @@ pub struct AppState {
     pub clock: Clock,
     /// Seals secrets stored in the database.
     pub secrets: Arc<SecretBox>,
+    /// The passkey relying party; `None` when the origin cannot have one.
+    pub webauthn: Option<Arc<Webauthn>>,
+    /// Passkey ceremonies between their start and finish calls.
+    pub ceremonies: CeremonyStore,
     /// The first-run setup token.
     pub setup: Arc<SetupToken>,
     /// Proxies whose `X-Forwarded-For` header names the client.
@@ -44,6 +51,8 @@ impl AppState {
     pub fn new(pool: SqlitePool, origin: PublicOrigin, clock: Clock, secrets: SecretBox) -> Self {
         Self {
             pool,
+            webauthn: origin.relying_party().map(Arc::new),
+            ceremonies: CeremonyStore::default(),
             origin: Arc::new(origin),
             clock,
             secrets: Arc::new(secrets),

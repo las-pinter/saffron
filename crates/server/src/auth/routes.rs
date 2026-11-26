@@ -188,7 +188,12 @@ pub async fn change_password(
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn signed_in(state: &AppState, user: &User, status: StatusCode) -> ApiResult<Response> {
+/// Starts a session for `user` and answers with its cookie and the user.
+pub(crate) async fn signed_in(
+    state: &AppState,
+    user: &User,
+    status: StatusCode,
+) -> ApiResult<Response> {
     let token = session::start(&state.pool, user.id, state.clock.now()).await?;
     let set_cookie = cookie::set(&state.origin, &token, session::cookie_max_age_secs());
     Ok((

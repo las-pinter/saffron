@@ -44,14 +44,8 @@ pub async fn check(
     source: &str,
     now: Timestamp,
 ) -> Result<Verdict, ThrottleError> {
-    let (failures, oldest) =
-        login_throttle::failures_for_source(pool, source, now - WINDOW).await?;
-    if failures >= SOURCE_MAX_FAILURES
-        && let Some(oldest) = oldest
-    {
-        return Ok(Verdict::SourceThrottled {
-            retry_after: oldest + WINDOW - now,
-        });
+    if let Some(retry_after) = source_brake(pool, source, now).await? {
+        return Ok(Verdict::SourceThrottled { retry_after });
     }
     if let Some(until) = login_throttle::locked_until(pool, username).await?
         && until > now
@@ -61,6 +55,34 @@ pub async fn check(
         });
     }
     Ok(Verdict::Allowed)
+}
+
+/// How long `source` must wait when it failed too often, by any sign-in method.
+pub async fn source_brake(
+    pool: &SqlitePool,
+    source: &str,
+    now: Timestamp,
+) -> Result<Option<SignedDuration>, ThrottleError> {
+    let (failures, oldest) =
+        login_throttle::failures_for_source(pool, source, now - WINDOW).await?;
+    Ok(oldest
+        .filter(|_| failures >= SOURCE_MAX_FAILURES)
+        .map(|oldest| oldest + WINDOW - now))
+}
+
+/// The username a failure without one is recorded under. No account can have it,
+/// so it counts toward the per-client brake only.
+pub const NO_USERNAME: &str = "";
+
+/// Records a failed sign-in that names no password account, such as a refused
+/// passkey: it counts toward the per-client brake, never an account lockout.
+pub async fn record_source_failure(
+    pool: &SqlitePool,
+    source: &str,
+    now: Timestamp,
+) -> Result<(), sqlx::Error> {
+    login_throttle::record_failure(pool, NO_USERNAME, source, now).await?;
+    login_throttle::prune_failures(pool, now - RETENTION).await
 }
 
 /// Records a failed attempt; returns `true` when this failure locked the username.

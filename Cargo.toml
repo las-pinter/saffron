@@ -15,10 +15,12 @@ argon2 = "0.6.0"
 axum = { version = "0.8.9", features = ["macros"] }
 base64 = "0.23.1"
 chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["alloc"] }
+ciborium = "0.2.2"
 getrandom = "0.4.3"
 http-body-util = "0.1.5"
 jiff = "1.0.3"
 mime_guess = "2.0.5"
+p256 = { version = "0.14.0", default-features = false, features = ["ecdsa"] }
 rust_decimal = "1.43.0"
 rust-embed = "8.14.0"
 saffron-ai = { path = "crates/ai" }
@@ -38,6 +40,9 @@ tower = "0.5.3"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 url = "2.5.9"
+uuid = { version = "1.19.0", features = ["v4"] }
+webauthn-rs = { version = "0.6.2", default-features = false, features = ["conditional-ui"] }
+webauthn-rs-proto = "0.6.2"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

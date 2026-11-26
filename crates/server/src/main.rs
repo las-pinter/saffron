@@ -78,6 +78,12 @@ async fn serve(addr: SocketAddr) -> anyhow::Result<()> {
         .with_context(|| format!("cannot load the secret key {}", key_file.display()))?;
     let state = AppState::new(pool.clone(), origin, Clock::system(), secrets)
         .with_trusted_proxies(trusted_proxies);
+    if state.webauthn.is_none() {
+        tracing::warn!(
+            origin = %state.origin.as_str(),
+            "passkeys are unavailable: SAFFRON_PUBLIC_URL must name a host, not an IP address"
+        );
+    }
     announce_setup(&state).await?;
     tracing::info!(%addr, origin = %state.origin.as_str(), "saffron listening");
 

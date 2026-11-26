@@ -16,7 +16,7 @@ use axum::{
     Router,
     http::StatusCode,
     middleware,
-    routing::{any, get, post},
+    routing::{any, delete, get, post},
 };
 
 pub use health::HealthResponse;
@@ -44,6 +44,24 @@ fn api(state: AppState) -> Router {
         .route("/auth/login", post(auth::routes::login))
         .route("/auth/logout", post(auth::routes::logout))
         .route("/auth/password", post(auth::routes::change_password))
+        .route(
+            "/auth/passkey/login/start",
+            post(auth::passkey_login::login_start),
+        )
+        .route(
+            "/auth/passkey/login/finish",
+            post(auth::passkey_login::login_finish),
+        )
+        .route("/auth/passkeys", get(auth::passkeys::list))
+        .route("/auth/passkeys/{id}", delete(auth::passkeys::delete))
+        .route(
+            "/auth/passkeys/register/start",
+            post(auth::passkeys::register_start),
+        )
+        .route(
+            "/auth/passkeys/register/finish",
+            post(auth::passkeys::register_finish),
+        )
         .route("/auth/totp/setup", post(auth::totp::setup))
         .route("/auth/totp/confirm", post(auth::totp::confirm))
         .route("/auth/totp/disable", post(auth::totp::disable))

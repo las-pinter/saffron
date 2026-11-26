@@ -239,3 +239,29 @@ pub async fn claim_totp_step(pool: &SqlitePool, id: i64, step: i64) -> Result<bo
     .await?;
     Ok(result.rows_affected() == 1)
 }
+
+/// The `WebAuthn` user handle of `id`, storing `candidate` first when it has none.
+/// Returns `None` when the user does not exist.
+pub async fn webauthn_id_or_set(
+    pool: &SqlitePool,
+    id: i64,
+    candidate: &[u8],
+) -> Result<Option<Vec<u8>>, sqlx::Error> {
+    sqlx::query("UPDATE users SET webauthn_id = ? WHERE id = ? AND webauthn_id IS NULL")
+        .bind(candidate)
+        .bind(id)
+        .execute(pool)
+        .await?;
+    sqlx::query_scalar("SELECT webauthn_id FROM users WHERE id = ?")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+}
+
+/// The user whose `WebAuthn` user handle is `handle`.
+pub async fn by_webauthn_id(pool: &SqlitePool, handle: &[u8]) -> Result<Option<User>, sqlx::Error> {
+    sqlx::query_as(select_users!("WHERE webauthn_id = ?"))
+        .bind(handle)
+        .fetch_optional(pool)
+        .await
+}

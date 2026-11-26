@@ -36,9 +36,14 @@ totp-rs.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 url.workspace = true
+uuid.workspace = true
+webauthn-rs.workspace = true
+webauthn-rs-proto.workspace = true
 
 [dev-dependencies]
+ciborium.workspace = true
 http-body-util.workspace = true
+p256.workspace = true
 tempfile.workspace = true
 tower.workspace = true
 

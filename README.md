@@ -67,7 +67,7 @@ Settings, all optional, as environment variables (see `compose.yaml`):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SAFFRON_PUBLIC_URL` | `http://localhost:8640` | The HTTPS URL the browser uses. Required for any access other than localhost: cookies, the cross-site request check, and passkeys are bound to it. |
+| `SAFFRON_PUBLIC_URL` | `http://localhost:8640` | The HTTPS URL the browser uses. Required for any access other than localhost: cookies, the cross-site request check, and passkeys are bound to it. Passkeys need a host name here; with an IP address they are unavailable. |
 | `SAFFRON_TRUSTED_PROXIES` | none | Comma-separated addresses or CIDR ranges of proxies whose `X-Forwarded-For` header names the client, for per-client sign-in throttling. |
 | `SAFFRON_BIND` | `127.0.0.1:8640` (`0.0.0.0:8640` in the image) | Listen address. |
 | `SAFFRON_DATA_DIR` | `data` (`/data` in the image) | Database directory. |

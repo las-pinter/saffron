@@ -3,6 +3,9 @@
 // Each test file uses a different subset of these helpers.
 #![allow(dead_code)]
 
+pub mod authenticator;
+pub mod passkey_steps;
+
 use std::{
     net::SocketAddr,
     sync::{Arc, Mutex, PoisonError},
