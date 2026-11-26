@@ -4,6 +4,7 @@
 #![allow(dead_code)]
 
 pub mod authenticator;
+pub mod instrument_steps;
 pub mod passkey_steps;
 pub mod portfolio_steps;
 
@@ -25,6 +26,8 @@ use serde_json::{Value, json};
 use tower::ServiceExt;
 
 pub const LOCAL_ORIGIN: &str = "http://localhost:8640";
+/// Where no Yahoo answers, for tests that do not look instruments up.
+pub const NO_YAHOO: &str = "http://127.0.0.1:1";
 pub const ADMIN_PASSWORD: &str = "admin password 1";
 pub const USER_PASSWORD: &str = "member password 1";
 
@@ -42,14 +45,19 @@ impl TestApp {
     }
 
     pub async fn with_origin(origin: &str) -> Self {
-        Self::build(origin, "").await
+        Self::build(origin, "", NO_YAHOO).await
     }
 
     pub async fn with_trusted_proxies(proxies: &str) -> Self {
-        Self::build(LOCAL_ORIGIN, proxies).await
+        Self::build(LOCAL_ORIGIN, proxies, NO_YAHOO).await
     }
 
-    async fn build(origin: &str, proxies: &str) -> Self {
+    /// An app that looks instruments up at `yahoo_url`.
+    pub async fn with_yahoo(yahoo_url: &str) -> Self {
+        Self::build(LOCAL_ORIGIN, "", yahoo_url).await
+    }
+
+    async fn build(origin: &str, proxies: &str, yahoo_url: &str) -> Self {
         let pool = saffron_db::open_in_memory().await.expect("database");
         let now = Arc::new(Mutex::new(
             "2026-11-25T12:00:00Z"
@@ -63,7 +71,10 @@ impl TestApp {
         let proxies =
             saffron_server::auth::client::parse_trusted_proxies(proxies).expect("trusted proxies");
         let secrets = saffron_server::secrets::SecretBox::random().expect("secret key");
-        let state = AppState::new(pool, origin, clock, secrets).with_trusted_proxies(proxies);
+        let yahoo = saffron_market::yahoo::Yahoo::new(yahoo_url, std::time::Duration::ZERO)
+            .expect("Yahoo client");
+        let state =
+            AppState::new(pool, origin, clock, secrets, yahoo).with_trusted_proxies(proxies);
         Self {
             router: saffron_server::app(state.clone()),
             state,

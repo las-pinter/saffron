@@ -1,0 +1,57 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "EUR",
+          "symbol": "NOKIA.HE",
+          "exchangeName": "HEL",
+          "fullExchangeName": "Helsinki",
+          "instrumentType": "EQUITY",
+          "regularMarketTime": 1795710583,
+          "timezone": "EET",
+          "exchangeTimezoneName": "Europe/Helsinki",
+          "regularMarketPrice": 6.64,
+          "longName": "Nokia Oyj",
+          "shortName": "Nokia Corporation",
+          "chartPreviousClose": 6.32,
+          "priceHint": 2,
+          "dataGranularity": "1d",
+          "range": "1d"
+        },
+        "timestamp": [
+          1795710583
+        ],
+        "indicators": {
+          "quote": [
+            {
+              "close": [
+                6.639999866485596
+              ],
+              "high": [
+                6.673999786376953
+              ],
+              "low": [
+                6.559999942779541
+              ],
+              "volume": [
+                9677424
+              ],
+              "open": [
+                6.6539998054504395
+              ]
+            }
+          ],
+          "adjclose": [
+            {
+              "adjclose": [
+                6.639999866485596
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

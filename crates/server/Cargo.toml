@@ -25,7 +25,9 @@ getrandom.workspace = true
 jiff.workspace = true
 mime_guess.workspace = true
 rust-embed.workspace = true
+saffron-core.workspace = true
 saffron-db.workspace = true
+saffron-market.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
@@ -44,6 +46,7 @@ webauthn-rs-proto.workspace = true
 ciborium.workspace = true
 http-body-util.workspace = true
 p256.workspace = true
+saffron-market = { workspace = true, features = ["test-support"] }
 tempfile.workspace = true
 tower.workspace = true
 

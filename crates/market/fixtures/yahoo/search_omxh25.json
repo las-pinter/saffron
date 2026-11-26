@@ -1,0 +1,16 @@
+{
+  "count": 1,
+  "quotes": [
+    {
+      "exchange": "STO",
+      "shortname": "OMX Helsinki 25",
+      "quoteType": "INDEX",
+      "symbol": "^OMXH25",
+      "typeDisp": "Index",
+      "longname": "OMX Helsinki 25",
+      "exchDisp": "Stockholm",
+      "isYahooFinance": true
+    }
+  ],
+  "news": []
+}

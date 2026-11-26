@@ -5,6 +5,7 @@ pub mod clock;
 pub mod error;
 mod health;
 pub mod healthcheck;
+pub mod instruments;
 pub mod portfolios;
 pub mod request;
 pub mod secrets;
@@ -78,6 +79,9 @@ fn api(state: AppState) -> Router {
             "/memberships/{portfolio_id}",
             delete(portfolios::shares::leave),
         )
+        .route("/instruments", post(instruments::create))
+        .route("/instruments/lookup", get(instruments::lookup))
+        .route("/instruments/{id}", get(instruments::show))
         .route("/users", get(users::list).post(users::create))
         .route("/users/{id}/disable", post(users::disable))
         .route("/users/{id}/enable", post(users::enable))

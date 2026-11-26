@@ -1,0 +1,16 @@
+{
+  "count": 1,
+  "quotes": [
+    {
+      "exchange": "LSE",
+      "shortname": "ISHARES III PLC ISHRS CORE MSCI",
+      "quoteType": "ETF",
+      "symbol": "IWDA.L",
+      "typeDisp": "ETF",
+      "longname": "iShares Core MSCI World UCITS ETF USD (Acc)",
+      "exchDisp": "London",
+      "isYahooFinance": true
+    }
+  ],
+  "news": []
+}

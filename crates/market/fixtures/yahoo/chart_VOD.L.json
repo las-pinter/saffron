@@ -1,0 +1,57 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "GBp",
+          "symbol": "VOD.L",
+          "exchangeName": "LSE",
+          "fullExchangeName": "LSE",
+          "instrumentType": "EQUITY",
+          "regularMarketTime": 1795717278,
+          "timezone": "GMT",
+          "exchangeTimezoneName": "Europe/London",
+          "regularMarketPrice": 103.05,
+          "longName": "Vodafone Group Public Limited Company",
+          "shortName": "VODAFONE GROUP PLC ORD USD0.20 ",
+          "chartPreviousClose": 101.9,
+          "priceHint": 2,
+          "dataGranularity": "1d",
+          "range": "1d"
+        },
+        "timestamp": [
+          1795717278
+        ],
+        "indicators": {
+          "quote": [
+            {
+              "volume": [
+                173627108
+              ],
+              "close": [
+                103.05000305175781
+              ],
+              "high": [
+                103.25
+              ],
+              "low": [
+                101.5
+              ],
+              "open": [
+                102.0
+              ]
+            }
+          ],
+          "adjclose": [
+            {
+              "adjclose": [
+                103.05000305175781
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "EUR",
+          "symbol": "^OMXH25",
+          "exchangeName": "STO",
+          "fullExchangeName": "Stockholm",
+          "instrumentType": "INDEX",
+          "regularMarketTime": 1795710909,
+          "timezone": "CET",
+          "exchangeTimezoneName": "Europe/Stockholm",
+          "regularMarketPrice": 5994.7295,
+          "longName": "OMX Helsinki 25",
+          "shortName": "OMX Helsinki 25",
+          "chartPreviousClose": 5866.5586,
+          "priceHint": 2,
+          "dataGranularity": "1d",
+          "range": "1d"
+        },
+        "timestamp": [
+          1795710909
+        ],
+        "indicators": {
+          "quote": [
+            {
+              "open": [
+                5965.125
+              ],
+              "close": [
+                5994.7294921875
+              ],
+              "high": [
+                6005.15234375
+              ],
+              "low": [
+                5942.82275390625
+              ],
+              "volume": [
+                0
+              ]
+            }
+          ],
+          "adjclose": [
+            {
+              "adjclose": [
+                5994.7294921875
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

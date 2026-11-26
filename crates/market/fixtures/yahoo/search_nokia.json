@@ -1,0 +1,76 @@
+{
+  "count": 7,
+  "quotes": [
+    {
+      "exchange": "NYQ",
+      "shortname": "Nokia Corporation Sponsored",
+      "quoteType": "EQUITY",
+      "symbol": "NOK",
+      "typeDisp": "Equity",
+      "longname": "Nokia Oyj",
+      "exchDisp": "NYSE",
+      "isYahooFinance": true
+    },
+    {
+      "exchange": "HEL",
+      "shortname": "Nokia Corporation",
+      "quoteType": "EQUITY",
+      "symbol": "NOKIA.HE",
+      "typeDisp": "Equity",
+      "longname": "Nokia Oyj",
+      "exchDisp": "HEL",
+      "isYahooFinance": true
+    },
+    {
+      "exchange": "HEL",
+      "shortname": "Nokian Tyres Plc",
+      "quoteType": "EQUITY",
+      "symbol": "TYRES.HE",
+      "typeDisp": "Equity",
+      "longname": "Nokian Renkaat Oyj",
+      "exchDisp": "HEL",
+      "isYahooFinance": true
+    },
+    {
+      "exchange": "GER",
+      "shortname": "Nokia Oyj                     R",
+      "quoteType": "EQUITY",
+      "symbol": "NOA3.DE",
+      "typeDisp": "Equity",
+      "longname": "Nokia Oyj",
+      "exchDisp": "XETRA",
+      "isYahooFinance": true
+    },
+    {
+      "exchange": "STO",
+      "shortname": "Nokia Corporation",
+      "quoteType": "EQUITY",
+      "symbol": "NOKIA-SEK.ST",
+      "typeDisp": "Equity",
+      "longname": "Nokia Oyj",
+      "exchDisp": "Stockholm",
+      "isYahooFinance": true
+    },
+    {
+      "exchange": "MUN",
+      "shortname": "Nokian Renkaat Oyj            R",
+      "quoteType": "EQUITY",
+      "symbol": "NRE0.MU",
+      "typeDisp": "Equity",
+      "longname": "Nokian Renkaat Oyj",
+      "exchDisp": "Munich",
+      "isYahooFinance": true
+    },
+    {
+      "exchange": "PNK",
+      "shortname": "Nokia Corp.",
+      "quoteType": "EQUITY",
+      "symbol": "NOKBF",
+      "typeDisp": "Equity",
+      "longname": "Nokia Oyj",
+      "exchDisp": "OTC Markets",
+      "isYahooFinance": true
+    }
+  ],
+  "news": []
+}

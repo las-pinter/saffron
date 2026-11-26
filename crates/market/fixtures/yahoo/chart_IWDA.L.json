@@ -1,0 +1,57 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "USD",
+          "symbol": "IWDA.L",
+          "exchangeName": "LSE",
+          "fullExchangeName": "LSE",
+          "instrumentType": "ETF",
+          "regularMarketTime": 1795713400,
+          "timezone": "GMT",
+          "exchangeTimezoneName": "Europe/London",
+          "regularMarketPrice": 138.02,
+          "longName": "iShares Core MSCI World UCITS ETF USD (Acc)",
+          "shortName": "ISHARES III PLC ISHRS CORE MSCI",
+          "chartPreviousClose": 133.99,
+          "priceHint": 2,
+          "dataGranularity": "1d",
+          "range": "1d"
+        },
+        "timestamp": [
+          1795713400
+        ],
+        "indicators": {
+          "quote": [
+            {
+              "low": [
+                137.47999572753906
+              ],
+              "volume": [
+                274974
+              ],
+              "close": [
+                138.02000427246094
+              ],
+              "open": [
+                137.5800018310547
+              ],
+              "high": [
+                138.27000427246094
+              ]
+            }
+          ],
+          "adjclose": [
+            {
+              "adjclose": [
+                138.02000427246094
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

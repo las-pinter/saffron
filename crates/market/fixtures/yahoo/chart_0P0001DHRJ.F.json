@@ -1,0 +1,35 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "EUR",
+          "symbol": "0P0001DHRJ.F",
+          "exchangeName": "FRA",
+          "fullExchangeName": "Frankfurt",
+          "instrumentType": "MUTUALFUND",
+          "regularMarketTime": 1795554000,
+          "timezone": "CET",
+          "exchangeTimezoneName": "Europe/Berlin",
+          "regularMarketPrice": 138.75,
+          "longName": "OP-Suomi Indeksi B",
+          "shortName": "0P0001DHRJ.F",
+          "chartPreviousClose": 139.96,
+          "priceHint": 2,
+          "dataGranularity": "1d",
+          "range": "1d"
+        },
+        "timestamp": [],
+        "indicators": {
+          "quote": [
+            {}
+          ],
+          "adjclose": [
+            {}
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

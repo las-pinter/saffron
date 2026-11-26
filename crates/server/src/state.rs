@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use saffron_market::yahoo::Yahoo;
 use sqlx::SqlitePool;
 
 use tokio::sync::{Mutex, Semaphore};
@@ -40,15 +41,24 @@ pub struct AppState {
     pub sign_in_gate: Arc<Mutex<()>>,
     /// Bounds how many sign-ins may wait for [`Self::sign_in_gate`].
     pub sign_in_queue: Arc<Semaphore>,
+    /// Yahoo Finance, for instrument lookup.
+    pub yahoo: Arc<Yahoo>,
 }
 
 /// Sign-ins that may wait for their turn at once; more are refused with 429.
 pub const MAX_QUEUED_SIGN_INS: usize = 16;
 
 impl AppState {
-    /// State over `pool` for `origin`, sealing secrets with `secrets`.
+    /// State over `pool` for `origin`, sealing secrets with `secrets` and looking
+    /// instruments up at `yahoo`.
     #[must_use]
-    pub fn new(pool: SqlitePool, origin: PublicOrigin, clock: Clock, secrets: SecretBox) -> Self {
+    pub fn new(
+        pool: SqlitePool,
+        origin: PublicOrigin,
+        clock: Clock,
+        secrets: SecretBox,
+        yahoo: Yahoo,
+    ) -> Self {
         Self {
             pool,
             webauthn: origin.relying_party().map(Arc::new),
@@ -60,6 +70,7 @@ impl AppState {
             trusted_proxies: Arc::new([]),
             sign_in_gate: Arc::new(Mutex::new(())),
             sign_in_queue: Arc::new(Semaphore::new(MAX_QUEUED_SIGN_INS)),
+            yahoo: Arc::new(yahoo),
         }
     }
 

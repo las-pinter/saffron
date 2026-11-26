@@ -3,7 +3,7 @@
 
 use axum::extract::{
     FromRequest, FromRequestParts,
-    rejection::{JsonRejection, PathRejection},
+    rejection::{JsonRejection, PathRejection, QueryRejection},
 };
 
 use crate::error::ApiError;
@@ -12,6 +12,11 @@ use crate::error::ApiError;
 #[derive(Debug, FromRequest)]
 #[from_request(via(axum::Json), rejection(ApiError))]
 pub struct JsonBody<T>(pub T);
+
+/// Typed query parameters.
+#[derive(Debug, FromRequestParts)]
+#[from_request(via(axum::extract::Query), rejection(ApiError))]
+pub struct QueryParam<T>(pub T);
 
 /// Typed path parameters.
 #[derive(Debug, FromRequestParts)]
@@ -27,5 +32,11 @@ impl From<JsonRejection> for ApiError {
 impl From<PathRejection> for ApiError {
     fn from(rejection: PathRejection) -> Self {
         Self::new(rejection.status(), "invalid_path", rejection.body_text())
+    }
+}
+
+impl From<QueryRejection> for ApiError {
+    fn from(rejection: QueryRejection) -> Self {
+        Self::new(rejection.status(), "invalid_query", rejection.body_text())
     }
 }

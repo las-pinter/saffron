@@ -46,6 +46,10 @@ test:
     cargo nextest run --workspace --locked --no-tests=warn
     {{web}} test
 
+# Opt-in tests that call live market data providers over the internet.
+live:
+    cargo nextest run --workspace --locked --run-ignored only -E 'binary(live)'
+
 # Dependency policy: licenses, advisories, sources.
 deny:
     cargo deny check

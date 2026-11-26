@@ -76,7 +76,9 @@ async fn serve(addr: SocketAddr) -> anyhow::Result<()> {
     let secrets = SecretBox::load_or_create(&key_file, stored)
         .await
         .with_context(|| format!("cannot load the secret key {}", key_file.display()))?;
-    let state = AppState::new(pool.clone(), origin, Clock::system(), secrets)
+    let yahoo =
+        saffron_market::yahoo::Yahoo::live().context("cannot build the Yahoo Finance client")?;
+    let state = AppState::new(pool.clone(), origin, Clock::system(), secrets, yahoo)
         .with_trusted_proxies(trusted_proxies);
     if state.webauthn.is_none() {
         tracing::warn!(

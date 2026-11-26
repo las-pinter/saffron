@@ -1,0 +1,16 @@
+{
+  "count": 1,
+  "quotes": [
+    {
+      "exchange": "FRA",
+      "shortname": "0P0001DHRJ.F",
+      "quoteType": "MUTUALFUND",
+      "symbol": "0P0001DHRJ.F",
+      "typeDisp": "Fund",
+      "longname": "OP-Suomi Indeksi B",
+      "exchDisp": "Frankfurt",
+      "isYahooFinance": true
+    }
+  ],
+  "news": []
+}
