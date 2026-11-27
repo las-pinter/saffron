@@ -37,6 +37,8 @@ jobs:
         with:
           tool: just,cargo-nextest,cargo-deny
       - run: pnpm --dir web install --frozen-lockfile
+      - name: Install the Playwright browser
+        run: pnpm --dir web exec playwright install --with-deps chromium
       # Build the web bundle first so the server tests exercise the embedded app,
       # not only the "not built" answer.
       - run: pnpm --dir web build

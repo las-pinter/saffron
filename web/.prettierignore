@@ -1,3 +1,5 @@
 pnpm-lock.yaml
 dist
 src/components/ui
+test-results
+playwright-report

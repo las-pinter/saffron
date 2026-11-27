@@ -12,6 +12,7 @@ default:
 setup:
     {{web}} install --frozen-lockfile
     {{web}} exec lefthook install
+    {{web}} exec playwright install chromium
     cargo fetch --locked
 
 # Run the Rust server (API on 127.0.0.1:8640).
@@ -46,6 +47,10 @@ test:
     cargo nextest run --workspace --locked --no-tests=warn
     {{web}} test
 
+# End-to-end tests: the built app in Chromium, with the axe accessibility checks.
+test-e2e:
+    {{web}} exec playwright test
+
 # Opt-in tests that call live market data providers over the internet.
 live:
     cargo nextest run --workspace --locked --run-ignored only -E 'binary(live)'
@@ -60,4 +65,4 @@ build:
     cargo build --release --locked
 
 # The full gate. CI runs exactly this; run it before every push.
-gate: fmt-check typecheck lint test deny build
+gate: fmt-check typecheck lint test test-e2e deny build

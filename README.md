@@ -54,8 +54,9 @@ administrator account:
 docker compose logs saffron | grep setup
 ```
 
-The setup page itself arrives with the web interface. Until then, create the
-administrator with the token from that link:
+Open the printed `/setup#token=…` link in the browser and fill in the form. A
+fresh server can also be set up without the web interface, with the token from
+that link:
 
 ```sh
 curl -X POST http://localhost:8640/api/auth/setup \
@@ -83,13 +84,16 @@ together: Saffron refuses to start when the database holds such secrets but
 ## Development
 
 Requirements: Rust (the version in `rust-toolchain.toml`), Node 22 with pnpm,
-[just](https://github.com/casey/just), cargo-nextest, and cargo-deny.
+[just](https://github.com/casey/just), cargo-nextest, and cargo-deny. On Linux,
+the end-to-end tests also need Chromium and its system libraries; `just setup`
+installs Chromium, and `pnpm --dir web exec playwright install --with-deps
+chromium` adds the system packages (it needs sudo).
 
 ```sh
-just setup     # install web dependencies and git hooks
+just setup     # install web dependencies, git hooks, and the Playwright browser
 just run       # API server on http://127.0.0.1:8640
 just dev-web   # web dev server, proxies /api to the API server
-just gate      # the full quality gate: format, types, lint, tests, deny, build
+just gate      # the full quality gate: format, types, lint, tests, end-to-end tests, deny, build
 ```
 
 Work happens on `dev`; `main` receives changes only through pull requests from
