@@ -23,6 +23,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "time"] }
 url.workspace = true
+zip.workspace = true
 
 [dev-dependencies]
 saffron-market = { path = ".", features = ["test-support"] }

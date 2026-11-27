@@ -3,6 +3,7 @@
 pub mod auth;
 pub mod clock;
 pub mod error;
+pub mod fx_refresh;
 mod health;
 pub mod healthcheck;
 pub mod instruments;

@@ -1,6 +1,7 @@
 //! Market data for Saffron: price, FX, and news providers.
 
 mod client;
+pub mod ecb;
 pub mod ft;
 pub mod yahoo;
 
@@ -136,6 +137,8 @@ pub struct Providers {
     pub yahoo: yahoo::Yahoo,
     /// The fund fallback.
     pub ft: ft::Ft,
+    /// ECB reference rates.
+    pub ecb: ecb::Ecb,
 }
 
 impl Providers {
@@ -144,6 +147,7 @@ impl Providers {
         Ok(Self {
             yahoo: yahoo::Yahoo::live()?,
             ft: ft::Ft::live()?,
+            ecb: ecb::Ecb::live()?,
         })
     }
 }

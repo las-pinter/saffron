@@ -3,6 +3,7 @@
 
 pub mod audit;
 pub mod decimal;
+pub mod fx;
 pub mod instruments;
 pub mod login_throttle;
 pub mod passkeys;

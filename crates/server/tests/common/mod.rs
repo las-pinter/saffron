@@ -76,6 +76,8 @@ impl TestApp {
                 .expect("Yahoo client"),
             ft: saffron_market::ft::Ft::new(yahoo_url, std::time::Duration::ZERO)
                 .expect("FT client"),
+            ecb: saffron_market::ecb::Ecb::new(yahoo_url, std::time::Duration::ZERO)
+                .expect("ECB client"),
         };
         let state =
             AppState::new(pool, origin, clock, secrets, market).with_trusted_proxies(proxies);

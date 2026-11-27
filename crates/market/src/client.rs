@@ -63,6 +63,12 @@ impl Client {
 
     /// Fetches `url` in its turn and reads the body as JSON.
     pub(crate) async fn get_json<T: DeserializeOwned>(&self, url: Url) -> Result<T, MarketError> {
+        let body = self.get_bytes(url).await?;
+        serde_json::from_slice(&body).map_err(|error| MarketError::BadResponse(error.to_string()))
+    }
+
+    /// Fetches `url` in its turn and reads the body as bytes.
+    pub(crate) async fn get_bytes(&self, url: Url) -> Result<Vec<u8>, MarketError> {
         self.throttle.wait().await?;
         let response = self
             .http
@@ -79,11 +85,11 @@ impl Client {
             }
             status => return Err(MarketError::Unavailable(format!("HTTP {status}"))),
         }
-        let body = response
+        response
             .bytes()
             .await
-            .map_err(|error| MarketError::Unavailable(error.without_url().to_string()))?;
-        serde_json::from_slice(&body).map_err(|error| MarketError::BadResponse(error.to_string()))
+            .map(|body| body.to_vec())
+            .map_err(|error| MarketError::Unavailable(error.without_url().to_string()))
     }
 }
 

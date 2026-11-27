@@ -33,6 +33,8 @@ pub struct Refreshed {
     pub quotes: usize,
     /// Prices stored by history backfill.
     pub history: usize,
+    /// Exchange rates stored.
+    pub fx: usize,
     /// Listings whose refresh failed.
     pub failed: usize,
 }
@@ -45,12 +47,14 @@ pub struct Refreshed {
 pub async fn tick(state: &AppState) -> ApiResult<Refreshed> {
     let now = state.clock.now();
     let history = backfill(state, now).await?;
+    let fx = crate::fx_refresh::refresh(state, now).await?;
     fill_timezones(state).await?;
     let due = due_listings(state, now).await?;
     let quotes = refresh_quotes(state, &due, now).await?;
     Ok(Refreshed {
         quotes,
         history,
+        fx,
         failed: due.len().saturating_sub(quotes),
     })
 }

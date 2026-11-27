@@ -1,8 +1,8 @@
-//! The live Yahoo endpoints. These call the internet, so they only run on request:
-//! `just live`.
+//! The live Yahoo and ECB endpoints. These call the internet, so they only run on
+//! request: `just live`.
 
 use saffron_core::instrument::InstrumentKind;
-use saffron_market::yahoo::Yahoo;
+use saffron_market::{ecb::Ecb, yahoo::Yahoo};
 
 #[tokio::test]
 #[ignore = "calls Yahoo Finance; run with `just live`"]
@@ -23,5 +23,21 @@ async fn the_op_fund_isin_resolves_on_yahoo() {
             listing.kind
         ),
         ("OP-Suomi Indeksi B", "EUR", InstrumentKind::Fund)
+    );
+}
+
+#[tokio::test]
+#[ignore = "calls the ECB; run with `just live`"]
+async fn the_ecb_serves_rates_and_history() {
+    let ecb = Ecb::live().expect("client");
+
+    let day = ecb.daily().await.expect("daily rates");
+    let history = ecb.history().await.expect("history");
+
+    assert!(!day.per_eur.is_empty(), "a currency on the newest day");
+    assert!(
+        history.len() > 1000,
+        "the archive holds years of days ({})",
+        history.len()
     );
 }

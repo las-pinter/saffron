@@ -94,6 +94,8 @@ pub fn business_days_after(from: Date, to: Date) -> i64 {
     count
 }
 
-fn is_business_day(day: Date) -> bool {
+/// Whether `day` is a weekday (Monday to Friday).
+#[must_use]
+pub fn is_business_day(day: Date) -> bool {
     !matches!(day.weekday(), Weekday::Saturday | Weekday::Sunday)
 }

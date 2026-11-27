@@ -73,6 +73,8 @@ const FT_SEARCHES: &[(&str, &str)] = &[(
 /// FT sometimes lists one ISIN in several currencies; this answer puts USD first.
 const FT_SEARCH_TWO_CURRENCIES: &str =
     include_str!("../fixtures/ft/search_FI4000315700_two_currencies.json");
+const ECB_DAILY: &str = include_str!("../fixtures/ecb/daily.xml");
+const ECB_HISTORY_CSV: &str = include_str!("../fixtures/ecb/hist_slice.csv");
 const FT_SEARCH_FUZZY: &str = include_str!("../fixtures/ft/search_none.json");
 const FT_HISTORIES: &[(&str, &str)] = &[
     (
@@ -118,6 +120,8 @@ impl MockMarket {
             .route("/v8/finance/spark", get(spark))
             .route("/data/searchapi/searchsecurities", get(ft_search))
             .route("/data/equities/ajax/get-historical-prices", get(ft_history))
+            .route("/stats/eurofxref/eurofxref-daily.xml", get(ecb_daily))
+            .route("/stats/eurofxref/eurofxref-hist.zip", get(ecb_history))
             .with_state(Arc::clone(&shared));
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
@@ -145,7 +149,13 @@ impl MockMarket {
         Ok(Providers {
             yahoo: self.client()?,
             ft: self.ft_client()?,
+            ecb: self.ecb_client()?,
         })
+    }
+
+    /// An ECB client for this stand-in with no gap between requests.
+    pub fn ecb_client(&self) -> Result<crate::ecb::Ecb, MarketError> {
+        crate::ecb::Ecb::new(&self.url(), Duration::ZERO)
     }
 
     /// An FT client for this stand-in with no gap between requests.
@@ -358,4 +368,40 @@ fn json(status: StatusCode, body: &'static str) -> Response {
 
 fn json_owned(status: StatusCode, body: String) -> Response {
     (status, [(header::CONTENT_TYPE, "application/json")], body).into_response()
+}
+
+async fn ecb_daily(State(shared): State<Arc<Shared>>, headers: HeaderMap) -> Response {
+    if let Some(refusal) = refusal(&shared, &headers) {
+        return refusal;
+    }
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "text/xml")],
+        ECB_DAILY,
+    )
+        .into_response()
+}
+
+/// Serves the recorded history rows inside a zip, as the ECB does.
+async fn ecb_history(State(shared): State<Arc<Shared>>, headers: HeaderMap) -> Response {
+    if let Some(refusal) = refusal(&shared, &headers) {
+        return refusal;
+    }
+    let mut archive = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+    if archive.start_file("eurofxref-hist.csv", options).is_err()
+        || std::io::Write::write_all(&mut archive, ECB_HISTORY_CSV.as_bytes()).is_err()
+    {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    }
+    match archive.finish() {
+        Ok(cursor) => (
+            StatusCode::OK,
+            [(header::CONTENT_TYPE, "application/zip")],
+            cursor.into_inner(),
+        )
+            .into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
 }
