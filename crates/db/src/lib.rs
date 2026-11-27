@@ -1,6 +1,7 @@
 //! SQLite storage for Saffron: connection pool, embedded migrations, and the column
 //! encodings shared by every query.
 
+pub mod accounts;
 pub mod audit;
 pub mod decimal;
 pub mod fx;
@@ -12,6 +13,7 @@ pub mod prices;
 pub mod sessions;
 pub mod settings;
 pub mod time;
+pub mod transactions;
 pub mod users;
 
 use std::{path::Path, time::Duration};

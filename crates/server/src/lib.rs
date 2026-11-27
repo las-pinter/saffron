@@ -1,6 +1,7 @@
 //! The Saffron server: HTTP API and the embedded web application.
 
 pub mod auth;
+pub mod book;
 pub mod clock;
 pub mod error;
 pub mod fx_refresh;

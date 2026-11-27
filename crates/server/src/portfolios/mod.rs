@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use self::guard::PortfolioAccess;
 use crate::{
     auth::extract::CurrentUser,
+    book,
     error::{ApiError, ApiResult},
     request::JsonBody,
     state::AppState,
@@ -40,7 +41,29 @@ pub fn one_portfolio(state: AppState) -> Router<AppState> {
         .route("/archive", post(archive))
         .route("/unarchive", post(unarchive))
         .route("/shares", get(shares::list).post(shares::put))
-        .route("/shares/{user_id}", axum::routing::delete(shares::remove));
+        .route("/shares/{user_id}", axum::routing::delete(shares::remove))
+        .route(
+            "/accounts",
+            get(book::accounts::list).post(book::accounts::create),
+        )
+        .route(
+            "/accounts/{account_id}",
+            axum::routing::patch(book::accounts::rename),
+        )
+        .route("/accounts/{account_id}/close", post(book::accounts::close))
+        .route(
+            "/accounts/{account_id}/reopen",
+            post(book::accounts::reopen),
+        )
+        .route(
+            "/transactions",
+            get(book::transactions::list).post(book::transactions::create),
+        )
+        .route(
+            "/transactions/{transaction_id}",
+            axum::routing::delete(book::transactions::delete),
+        )
+        .route("/holdings", get(book::holdings::show));
     guarded(routes, state)
 }
 
@@ -129,7 +152,7 @@ pub async fn create(
     JsonBody(request): JsonBody<CreateRequest>,
 ) -> ApiResult<(StatusCode, Json<PortfolioView>)> {
     let user = &session.user;
-    let name = validate_name(&request.name)?;
+    let name = validate_name(&request.name, "portfolio")?;
     let currency = validate_currency(request.base_currency.as_deref().unwrap_or(DEFAULT_CURRENCY))?;
     let new = NewPortfolio {
         owner_id: user.id,
@@ -160,7 +183,7 @@ pub async fn rename(
     JsonBody(request): JsonBody<RenameRequest>,
 ) -> ApiResult<Json<PortfolioView>> {
     access.require(Role::Owner)?;
-    let name = validate_name(&request.name)?;
+    let name = validate_name(&request.name, "portfolio")?;
     let id = access.0.portfolio.id;
     portfolios::rename(&state.pool, id, name)
         .await
@@ -220,7 +243,7 @@ async fn reloaded(state: &AppState, user: &User, id: i64) -> ApiResult<Json<Port
     Ok(Json(PortfolioView::from(&access)))
 }
 
-fn validate_name(raw: &str) -> ApiResult<&str> {
+pub(crate) fn validate_name<'a>(raw: &'a str, noun: &str) -> ApiResult<&'a str> {
     let name = raw.trim();
     if name.is_empty()
         || name.chars().count() > MAX_NAME_CHARS
@@ -228,14 +251,14 @@ fn validate_name(raw: &str) -> ApiResult<&str> {
     {
         return Err(ApiError::bad_request(
             "invalid_name",
-            format!("a portfolio name has 1 to {MAX_NAME_CHARS} characters"),
+            format!("a {noun} name has 1 to {MAX_NAME_CHARS} characters"),
         ));
     }
     Ok(name)
 }
 
 /// An ISO 4217 code: three letters, stored in upper case.
-fn validate_currency(raw: &str) -> ApiResult<String> {
+pub(crate) fn validate_currency(raw: &str) -> ApiResult<String> {
     let code = raw.trim().to_ascii_uppercase();
     if code.len() == 3 && code.bytes().all(|byte| byte.is_ascii_uppercase()) {
         return Ok(code);

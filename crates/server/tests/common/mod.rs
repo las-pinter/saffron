@@ -4,6 +4,7 @@
 #![allow(dead_code)]
 
 pub mod authenticator;
+pub mod book_steps;
 pub mod instrument_steps;
 pub mod passkey_steps;
 pub mod portfolio_steps;

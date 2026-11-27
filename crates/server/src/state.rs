@@ -46,6 +46,9 @@ pub struct AppState {
     pub market: Arc<Providers>,
     /// The time zone of scheduled jobs such as the daily fund refresh.
     pub timezone: TimeZone,
+    /// Held while a book write reads the portfolio, checks it, and stores the row,
+    /// so two overlapping writes cannot both pass the check and break the book.
+    pub book_writes: Arc<Mutex<()>>,
 }
 
 /// The time zone of scheduled jobs unless `SAFFRON_TIMEZONE` names another.
@@ -78,6 +81,7 @@ impl AppState {
             sign_in_queue: Arc::new(Semaphore::new(MAX_QUEUED_SIGN_INS)),
             market: Arc::new(market),
             timezone: TimeZone::get(DEFAULT_TIMEZONE).unwrap_or(TimeZone::UTC),
+            book_writes: Arc::new(Mutex::new(())),
         }
     }
 
