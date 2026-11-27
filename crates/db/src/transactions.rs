@@ -233,3 +233,39 @@ pub async fn delete(pool: &SqlitePool, portfolio_id: i64, id: i64) -> Result<boo
     .await?;
     Ok(result.rows_affected() == 1)
 }
+
+const UPDATE_SQL: &str = concat!(
+    "UPDATE transactions SET account_id = ?2, instrument_id = ?3, kind = ?4, ",
+    "trade_date = ?5, quantity = ?6, price = ?7, amount = ?8, fee = ?9, ",
+    "currency = ?10, fx_rate = ?11, note = ?12, updated_at = ?13 ",
+    "WHERE id = ?1 AND account_id IN (SELECT id FROM accounts WHERE portfolio_id = ?14)"
+);
+
+/// Replaces every field of transaction `id` when it is in `portfolio_id`. Returns
+/// whether a row was updated.
+pub async fn update(
+    pool: &SqlitePool,
+    portfolio_id: i64,
+    id: i64,
+    transaction: &NewTransaction<'_>,
+    now: Timestamp,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query(UPDATE_SQL)
+        .bind(id)
+        .bind(transaction.account_id)
+        .bind(transaction.instrument_id)
+        .bind(transaction.kind.as_str())
+        .bind(transaction.date.to_string())
+        .bind(transaction.quantity.map(decimal::to_text))
+        .bind(transaction.price.map(decimal::to_text))
+        .bind(transaction.amount.map(decimal::to_text))
+        .bind(decimal::to_text(transaction.fee))
+        .bind(transaction.currency)
+        .bind(transaction.fx_rate.map(decimal::to_text))
+        .bind(transaction.note)
+        .bind(time::to_text(now))
+        .bind(portfolio_id)
+        .execute(pool)
+        .await?;
+    Ok(result.rows_affected() == 1)
+}

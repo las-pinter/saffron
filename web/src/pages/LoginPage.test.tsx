@@ -24,7 +24,10 @@ describe('LoginPage', () => {
     expect(
       await screen.findByRole('heading', { name: 'Saffron is being built' }),
     ).toBeInTheDocument()
-    expect(calls.at(-1)?.body).toEqual({ username: 'las', password: 'correct horse battery' })
+    expect(calls.filter((call) => call.path === '/auth/login').at(-1)?.body).toEqual({
+      username: 'las',
+      password: 'correct horse battery',
+    })
   })
 
   it('asks for the authenticator code when the account has two-factor sign-in', async () => {

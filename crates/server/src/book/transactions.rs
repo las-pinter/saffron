@@ -6,8 +6,11 @@ use jiff::civil::Date;
 use rust_decimal::Decimal;
 use saffron_core::book as engine;
 use saffron_db::{
-    accounts, decimal, instruments,
+    accounts::{self, Account},
+    decimal, instruments,
+    portfolios::Access,
     transactions::{self, NewTransaction, Transaction},
+    users::User,
 };
 use serde::{Deserialize, Serialize};
 
@@ -155,12 +158,106 @@ pub async fn create(
     let account = accounts::get(&state.pool, portfolio_id, request.account_id)
         .await?
         .ok_or_else(ApiError::not_found)?;
-    if account.closed_at.is_some() {
-        return Err(ApiError::conflict(
-            "account_closed",
-            "the account is closed; reopen it to record transactions",
-        ));
+    let parsed = parse_request(&state, &account, &request, CANDIDATE).await?;
+    let new = new_transaction(&parsed.transaction, parsed.note.as_deref());
+    let _writing = state.book_writes.lock().await;
+    refuse_closed(
+        &accounts::get(&state.pool, portfolio_id, request.account_id)
+            .await?
+            .ok_or_else(ApiError::not_found)?,
+    )?;
+    check_book(&state, portfolio_id, &parsed.transaction, None).await?;
+    let id = transactions::create(&state.pool, new, session.user.id, state.clock.now()).await?;
+    audit_change(
+        &state,
+        &session.user,
+        &access.0,
+        "transaction.create",
+        &parsed,
+        Some(id),
+    )
+    .await;
+    let mut view = TransactionView::new(id, &parsed.transaction);
+    view.note = parsed.note;
+    Ok((StatusCode::CREATED, Json(view)))
+}
+
+/// `PATCH /api/portfolios/{portfolio_id}/transactions/{transaction_id}`: replaces
+/// every field of a stored row, after the whole book still reads.
+pub async fn update(
+    State(state): State<AppState>,
+    CurrentUser(session): CurrentUser,
+    access: PortfolioAccess,
+    PathParam((_, transaction_id)): PathParam<(i64, i64)>,
+    JsonBody(request): JsonBody<CreateRequest>,
+) -> ApiResult<Json<TransactionView>> {
+    let portfolio_id = access.0.portfolio.id;
+    let account = accounts::get(&state.pool, portfolio_id, request.account_id)
+        .await?
+        .ok_or_else(ApiError::not_found)?;
+    let parsed = parse_request(&state, &account, &request, transaction_id).await?;
+    let new = new_transaction(&parsed.transaction, parsed.note.as_deref());
+    let _writing = state.book_writes.lock().await;
+    refuse_closed(
+        &accounts::get(&state.pool, portfolio_id, request.account_id)
+            .await?
+            .ok_or_else(ApiError::not_found)?,
+    )?;
+    let stored = transactions::list(&state.pool, portfolio_id).await?;
+    let row = stored
+        .iter()
+        .find(|row| row.id == transaction_id)
+        .ok_or_else(ApiError::not_found)?;
+    let current = accounts::get(&state.pool, portfolio_id, row.account_id)
+        .await?
+        .ok_or_else(ApiError::not_found)?;
+    refuse_closed(&current)?;
+    check_book(
+        &state,
+        portfolio_id,
+        &parsed.transaction,
+        Some(transaction_id),
+    )
+    .await?;
+    if !transactions::update(
+        &state.pool,
+        portfolio_id,
+        transaction_id,
+        &new,
+        state.clock.now(),
+    )
+    .await?
+    {
+        return Err(ApiError::not_found());
     }
+    audit_change(
+        &state,
+        &session.user,
+        &access.0,
+        "transaction.update",
+        &parsed,
+        Some(transaction_id),
+    )
+    .await;
+    let mut view = TransactionView::new(transaction_id, &parsed.transaction);
+    view.note = parsed.note;
+    Ok(Json(view))
+}
+
+/// A transaction request that passed the field checks, as the engine reads it.
+struct Parsed {
+    transaction: engine::Transaction,
+    note: Option<String>,
+}
+
+/// Validates `request` against `account` into a candidate with `id`.
+async fn parse_request(
+    state: &AppState,
+    account: &Account,
+    request: &CreateRequest,
+    id: i64,
+) -> ApiResult<Parsed> {
+    refuse_closed(account)?;
     let kind = engine::Kind::parse(request.kind.trim())
         .ok_or_else(|| ApiError::bad_request("invalid_kind", "unknown transaction kind"))?;
     if let Some(instrument_id) = request.instrument_id
@@ -188,54 +285,65 @@ pub async fn create(
         None => account.currency.clone(),
     };
     let note = note_of(request.note.as_deref())?;
-    let candidate = engine::Transaction {
-        id: CANDIDATE,
-        account_id: account.id,
-        instrument_id: request.instrument_id,
-        kind,
-        date,
-        quantity,
-        price,
-        amount,
-        fee,
-        currency: currency.clone(),
-        fx_rate,
-    };
-    let new = NewTransaction {
-        account_id: account.id,
-        instrument_id: request.instrument_id,
-        kind,
-        date,
-        quantity,
-        price,
-        amount,
-        fee,
-        currency: &currency,
-        fx_rate,
+    Ok(Parsed {
+        transaction: engine::Transaction {
+            id,
+            account_id: account.id,
+            instrument_id: request.instrument_id,
+            kind,
+            date,
+            quantity,
+            price,
+            amount,
+            fee,
+            currency,
+            fx_rate,
+        },
+        note: note.map(str::to_owned),
+    })
+}
+
+/// The stored form of a parsed transaction.
+fn new_transaction<'a>(
+    transaction: &'a engine::Transaction,
+    note: Option<&'a str>,
+) -> NewTransaction<'a> {
+    NewTransaction {
+        account_id: transaction.account_id,
+        instrument_id: transaction.instrument_id,
+        kind: transaction.kind,
+        date: transaction.date,
+        quantity: transaction.quantity,
+        price: transaction.price,
+        amount: transaction.amount,
+        fee: transaction.fee,
+        currency: &transaction.currency,
+        fx_rate: transaction.fx_rate,
         note,
-    };
-    let _writing = state.book_writes.lock().await;
-    check_book(&state, portfolio_id, &candidate).await?;
-    let id = transactions::create(&state.pool, new, session.user.id, state.clock.now()).await?;
+    }
+}
+
+/// Records one audit row about a stored transaction.
+async fn audit_change(
+    state: &AppState,
+    user: &User,
+    access: &Access,
+    action: &str,
+    parsed: &Parsed,
+    transaction_id: Option<i64>,
+) {
     let detail = serde_json::json!({
-        "account_id": account.id,
-        "kind": kind.as_str(),
-        "date": date.to_string(),
+        "transaction_id": transaction_id,
+        "account_id": parsed.transaction.account_id,
+        "kind": parsed.transaction.kind.as_str(),
+        "date": parsed.transaction.date.to_string(),
     })
     .to_string();
     record_audit(
-        &state,
-        portfolios::entry(
-            &session.user,
-            &access.0,
-            "transaction.create",
-            Some(&detail),
-        ),
+        state,
+        portfolios::entry(user, access, action, Some(&detail)),
     )
     .await;
-    let mut view = TransactionView::new(id, &candidate);
-    view.note = note.map(str::to_owned);
-    Ok((StatusCode::CREATED, Json(view)))
 }
 
 /// `DELETE /api/portfolios/{portfolio_id}/transactions/{transaction_id}`
@@ -248,9 +356,14 @@ pub async fn delete(
     let portfolio_id = access.0.portfolio.id;
     let _writing = state.book_writes.lock().await;
     let stored = transactions::list(&state.pool, portfolio_id).await?;
-    if !stored.iter().any(|row| row.id == transaction_id) {
-        return Err(ApiError::not_found());
-    }
+    let row = stored
+        .iter()
+        .find(|row| row.id == transaction_id)
+        .ok_or_else(ApiError::not_found)?;
+    let account = accounts::get(&state.pool, portfolio_id, row.account_id)
+        .await?
+        .ok_or_else(ApiError::not_found)?;
+    refuse_closed(&account)?;
     let accounts = accounts::list(&state.pool, portfolio_id).await?;
     let states = engine_accounts(&accounts);
     let all = engine_transactions(&stored);
@@ -280,12 +393,24 @@ pub async fn delete(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// Reads the whole portfolio with `candidate` added and refuses it when the result
-/// is not a valid book.
+/// A closed account takes no new row, no edit, and no deletion.
+fn refuse_closed(account: &Account) -> ApiResult<()> {
+    if account.closed_at.is_some() {
+        return Err(ApiError::conflict(
+            "account_closed",
+            "the account is closed; reopen it to record or change transactions",
+        ));
+    }
+    Ok(())
+}
+
+/// Reads the whole portfolio with `candidate` added, or in place of the row
+/// `replacing`, and refuses it when the result is not a valid book.
 async fn check_book(
     state: &AppState,
     portfolio_id: i64,
     candidate: &engine::Transaction,
+    replacing: Option<i64>,
 ) -> ApiResult<()> {
     let accounts = accounts::list(&state.pool, portfolio_id).await?;
     let stored = transactions::list(&state.pool, portfolio_id).await?;
@@ -293,39 +418,47 @@ async fn check_book(
     let existing = engine_transactions(&stored);
     engine::read(&states, &existing)
         .map_err(|error| ApiError::internal(format!("the stored book is not valid: {error}")))?;
-    let mut all = existing;
-    all.push(candidate.clone());
-    engine::read(&states, &all).map_err(book_error)?;
+    let all = if let Some(id) = replacing {
+        existing
+            .into_iter()
+            .map(|row| if row.id == id { candidate.clone() } else { row })
+            .collect()
+    } else {
+        let mut all = existing;
+        all.push(candidate.clone());
+        all
+    };
+    engine::read(&states, &all).map_err(|error| book_error(error, candidate.id))?;
     Ok(())
 }
 
-/// Turns a refusal of the candidate transaction into a client error. A stored row
-/// can only fail after the candidate is added, because the stored book was read
-/// without it first; adding a backdated row can reorder it out of validity, which
-/// is the client's conflict, not a corrupt book.
-fn book_error(error: engine::BookError) -> ApiError {
+/// Turns a refusal of the edited transaction into a client error. A stored row can
+/// only fail after the candidate lands, because the stored book was read without it
+/// first; a backdated write can reorder it out of validity, which is the client's
+/// conflict, not a corrupt book.
+fn book_error(error: engine::BookError, candidate: i64) -> ApiError {
     match error {
         engine::BookError::Oversold {
             transaction,
             instrument,
             wanted,
             held,
-        } if transaction == CANDIDATE => ApiError::conflict(
+        } if transaction == candidate => ApiError::conflict(
             "oversold",
             format!(
                 "the sale asks for {wanted} units of instrument {instrument}, but only {held} are held"
             ),
         ),
-        engine::BookError::TransferCurrency { transaction } if transaction == CANDIDATE => {
+        engine::BookError::TransferCurrency { transaction } if transaction == candidate => {
             ApiError::bad_request("transfer_currency", "a transfer must stay in one currency")
         }
         engine::BookError::Invalid {
             transaction,
             reason,
-        } if transaction == CANDIDATE => ApiError::bad_request("invalid_transaction", reason),
+        } if transaction == candidate => ApiError::bad_request("invalid_transaction", reason),
         other => ApiError::conflict(
             "would_break_book",
-            format!("the new transaction would make a stored one invalid: {other}"),
+            format!("the write would make a stored transaction invalid: {other}"),
         ),
     }
 }

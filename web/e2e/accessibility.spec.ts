@@ -3,7 +3,7 @@ import { expectNoSeriousViolations, signedIn, stubApi } from './support'
 
 const SIGNED_IN_PAGES = [
   { path: '/', heading: 'Saffron is being built' },
-  { path: '/holdings', heading: 'Saffron is being built' },
+  { path: '/holdings', heading: 'Holdings' },
   { path: '/discover', heading: 'Saffron is being built' },
   { path: '/ai', heading: 'Saffron is being built' },
   { path: '/settings', heading: 'Settings' },

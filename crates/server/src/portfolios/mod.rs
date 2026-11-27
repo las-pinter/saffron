@@ -63,7 +63,7 @@ pub fn one_portfolio(state: AppState) -> Router<AppState> {
         )
         .route(
             "/transactions/{transaction_id}",
-            axum::routing::delete(book::transactions::delete),
+            axum::routing::delete(book::transactions::delete).patch(book::transactions::update),
         )
         .route("/holdings", get(book::holdings::show))
         .route("/performance", get(performance::show))

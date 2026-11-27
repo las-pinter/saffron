@@ -55,3 +55,28 @@ export function CheckField({ label, id, className = '', ...props }: CheckFieldPr
     </label>
   )
 }
+
+interface SelectFieldProps extends ComponentProps<'select'> {
+  label: string
+}
+
+/** A labelled select, styled like {@link Field}. */
+export function SelectField({ label, id, className = '', children, ...props }: SelectFieldProps) {
+  const generated = useId()
+  const inputId = id ?? generated
+
+  return (
+    <div>
+      <label htmlFor={inputId} className="block text-sm font-medium text-sf-text-secondary">
+        {label}
+      </label>
+      <select
+        id={inputId}
+        className={`mt-1.5 h-11 w-full rounded-lg border border-sf-border bg-sf-surface-sunken px-3 text-foreground ${className}`}
+        {...props}
+      >
+        {children}
+      </select>
+    </div>
+  )
+}

@@ -12,7 +12,8 @@ local bank (Finnish funds, Nasdaq Helsinki stocks, UCITS ETFs, US stocks), with
 EUR as the base currency. Nothing country-specific is hard-coded: currencies,
 exchanges, and data providers are configuration.
 
-> **Status:** early development. Nothing is usable yet.
+> **Status:** early development. Sign-in, settings, and the holdings book (accounts,
+> transactions, and positions) work; the rest is in progress.
 
 ## Planned features (v1)
 

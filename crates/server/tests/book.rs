@@ -320,3 +320,190 @@ async fn an_account_can_be_renamed_closed_and_reopened() {
         .await;
     assert_eq!(accepted.status, StatusCode::CREATED);
 }
+
+#[tokio::test]
+async fn a_transaction_can_be_edited_in_place() {
+    let f = fixture().await;
+    let record = |body: Value| book_steps::record(&f.app, &f.cookie, &f.portfolio, body);
+    record(deposit(f.brokerage, "2026-01-02", "10000")).await;
+    let buy = record(json!({
+        "account_id": f.brokerage, "instrument_id": f.stock, "kind": "buy",
+        "date": "2026-01-05", "quantity": "10", "price": "100", "fee": "5",
+        "note": "typo",
+    }))
+    .await;
+    let id = buy["id"].as_i64().expect("buy id");
+
+    let edited = f
+        .app
+        .call(
+            Method::PATCH,
+            &format!("/api/portfolios/{}/transactions/{id}", f.portfolio),
+        )
+        .cookie(&f.cookie)
+        .json(json!({
+            "account_id": f.brokerage, "instrument_id": f.stock, "kind": "buy",
+            "date": "2026-01-05", "quantity": "4", "price": "100", "fee": "5",
+            "note": "fixed",
+        }))
+        .send()
+        .await;
+
+    assert_eq!(edited.status, StatusCode::OK, "{:?}", edited.json());
+    assert_eq!(edited.json()["id"], json!(id), "the row keeps its id");
+    assert_eq!(edited.json()["quantity"], json!("4"));
+    assert_eq!(edited.json()["note"], json!("fixed"));
+    let holdings = book_steps::holdings(&f.app, &f.cookie, &f.portfolio).await;
+    let held = holding_of(state_of(&holdings, f.brokerage), f.stock);
+    assert_eq!(held["quantity"], json!("4"));
+    assert_eq!(
+        cents(&held["cost_basis"]),
+        "405.00".parse().expect("decimal")
+    );
+    let listed = f
+        .app
+        .get(&format!("/api/portfolios/{}/transactions", f.portfolio))
+        .cookie(&f.cookie)
+        .send()
+        .await;
+    let rows = listed.json();
+    let rows = rows.as_array().expect("transactions");
+    assert_eq!(rows.len(), 2, "no row was added or removed");
+    assert_eq!(
+        rows.iter()
+            .find(|row| row["id"].as_i64() == Some(id))
+            .expect("the edited row")["note"],
+        json!("fixed")
+    );
+}
+
+#[tokio::test]
+async fn an_edit_that_breaks_the_book_is_refused() {
+    let f = fixture().await;
+    let record = |body: Value| book_steps::record(&f.app, &f.cookie, &f.portfolio, body);
+    record(deposit(f.brokerage, "2026-01-02", "10000")).await;
+    let buy = record(json!({
+        "account_id": f.brokerage, "instrument_id": f.stock, "kind": "buy",
+        "date": "2026-01-05", "quantity": "5", "price": "100",
+    }))
+    .await;
+    let id = buy["id"].as_i64().expect("buy id");
+    record(json!({
+        "account_id": f.brokerage, "instrument_id": f.stock, "kind": "sell",
+        "date": "2026-01-06", "quantity": "5", "price": "110",
+    }))
+    .await;
+    let edit = |quantity: &str, date: &str| {
+        json!({
+            "account_id": f.brokerage, "instrument_id": f.stock, "kind": "buy",
+            "date": date, "quantity": quantity, "price": "100",
+        })
+    };
+
+    for body in [edit("4", "2026-01-05"), edit("5", "2026-01-07")] {
+        let refused = f
+            .app
+            .call(
+                Method::PATCH,
+                &format!("/api/portfolios/{}/transactions/{id}", f.portfolio),
+            )
+            .cookie(&f.cookie)
+            .json(body)
+            .send()
+            .await;
+        assert_eq!(refused.status, StatusCode::CONFLICT, "{:?}", refused.json());
+        assert_eq!(refused.json()["error"], json!("would_break_book"));
+    }
+
+    let listed = f
+        .app
+        .get(&format!("/api/portfolios/{}/transactions", f.portfolio))
+        .cookie(&f.cookie)
+        .send()
+        .await;
+    let rows = listed.json();
+    let kept = rows
+        .as_array()
+        .expect("transactions")
+        .iter()
+        .find(|row| row["id"].as_i64() == Some(id))
+        .expect("the edited row");
+    assert_eq!(
+        kept["quantity"],
+        json!("5"),
+        "a refused edit leaves the row as it was"
+    );
+
+    let missing = f
+        .app
+        .call(
+            Method::PATCH,
+            &format!("/api/portfolios/{}/transactions/999999", f.portfolio),
+        )
+        .cookie(&f.cookie)
+        .json(edit("5", "2026-01-05"))
+        .send()
+        .await;
+    assert_eq!(missing.status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn a_closed_account_refuses_an_edit_or_a_deletion() {
+    let f = fixture().await;
+    let deposit_row = book_steps::record(
+        &f.app,
+        &f.cookie,
+        &f.portfolio,
+        deposit(f.brokerage, "2026-01-02", "10"),
+    )
+    .await;
+    let id = deposit_row["id"].as_i64().expect("deposit id");
+    f.app
+        .post(&format!(
+            "/api/portfolios/{}/accounts/{}/close",
+            f.portfolio, f.brokerage
+        ))
+        .cookie(&f.cookie)
+        .send()
+        .await;
+
+    let refused = f
+        .app
+        .call(
+            Method::PATCH,
+            &format!("/api/portfolios/{}/transactions/{id}", f.portfolio),
+        )
+        .cookie(&f.cookie)
+        .json(deposit(f.brokerage, "2026-01-02", "20"))
+        .send()
+        .await;
+
+    assert_eq!(refused.status, StatusCode::CONFLICT);
+    assert_eq!(refused.json()["error"], json!("account_closed"));
+
+    // Moving the row into an open account would still take it out of the closed one.
+    let moved = f
+        .app
+        .call(
+            Method::PATCH,
+            &format!("/api/portfolios/{}/transactions/{id}", f.portfolio),
+        )
+        .cookie(&f.cookie)
+        .json(deposit(f.fund_account, "2026-01-02", "20"))
+        .send()
+        .await;
+    assert_eq!(moved.status, StatusCode::CONFLICT);
+    assert_eq!(moved.json()["error"], json!("account_closed"));
+
+    let removed = f
+        .app
+        .call(
+            Method::DELETE,
+            &format!("/api/portfolios/{}/transactions/{id}", f.portfolio),
+        )
+        .cookie(&f.cookie)
+        .send()
+        .await;
+    assert_eq!(removed.status, StatusCode::CONFLICT);
+    assert_eq!(removed.json()["error"], json!("account_closed"));
+}

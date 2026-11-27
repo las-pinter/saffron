@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { Compass, House, Sparkles, Wallet } from 'lucide-react'
 import { useAuth } from '@/auth/context'
 import { Logo } from '@/components/Logo'
+import { PortfolioProvider } from '@/portfolio/PortfolioProvider'
+import { PortfolioSwitcher } from '@/portfolio/PortfolioSwitcher'
 
 const NAV_ITEMS = [
   { to: '/', key: 'nav.overview', icon: House },
@@ -90,6 +92,14 @@ function AccountMenu() {
 }
 
 export function Layout() {
+  return (
+    <PortfolioProvider>
+      <Shell />
+    </PortfolioProvider>
+  )
+}
+
+function Shell() {
   const { t } = useTranslation()
 
   return (
@@ -106,6 +116,7 @@ export function Layout() {
             <Logo />
             <span className="font-heading text-[19px] font-bold">{t('app.name')}</span>
           </NavLink>
+          <PortfolioSwitcher />
           <nav aria-label={t('nav.label')} className="hidden flex-wrap gap-1 sm:flex">
             <NavLinks place="header" />
           </nav>

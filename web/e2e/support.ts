@@ -20,25 +20,33 @@ const BOB: UserView = {
   totp_enabled: true,
 }
 
-interface Stub {
+interface Reply {
   status?: number
   body?: unknown
 }
 
-/** Answers every `/api` request by path; an unlisted path is a 404. */
+/** A fixed answer, or a function called on the request so a spec can change state. */
+type Stub = Reply | (() => Reply)
+
+/**
+ * Answers every `/api` request by "METHOD /path" or by path alone; an unlisted path is
+ * a 404.
+ */
 export async function stubApi(page: Page, stubs: Record<string, Stub>) {
   await page.route('**/api/**', async (route) => {
     const path = new URL(route.request().url()).pathname.replace(/^\/api/, '')
-    const stub = stubs[path]
+    const method = route.request().method().toUpperCase()
+    const stub = stubs[`${method} ${path}`] ?? stubs[path]
+    const reply = typeof stub === 'function' ? stub() : stub
     await route.fulfill(
-      stub
-        ? { status: stub.status ?? 200, json: stub.body ?? null }
+      reply
+        ? { status: reply.status ?? 200, json: reply.body ?? null }
         : { status: 404, json: { error: 'not_found', message: 'no stub' } },
     )
   })
 }
 
-/** The API a signed-in administrator sees, with no passkeys yet. */
+/** The API a signed-in administrator sees, with no passkeys and no portfolios yet. */
 export function signedIn(overrides: Partial<UserView> = {}): Record<string, Stub> {
   const user = { ...LAS, ...overrides }
   return {
@@ -47,6 +55,7 @@ export function signedIn(overrides: Partial<UserView> = {}): Record<string, Stub
     '/auth/passkeys': { body: [] },
     '/users': { body: [user, BOB] },
     '/settings': { body: { ft_fallback: false } },
+    '/portfolios': { body: [] },
   }
 }
 

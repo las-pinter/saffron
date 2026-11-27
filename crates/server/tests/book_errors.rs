@@ -242,6 +242,11 @@ async fn a_viewer_reads_but_does_not_write() {
         (Method::DELETE, f.path("transactions/1"), None),
         (
             Method::PATCH,
+            f.path("transactions/1"),
+            Some(deposit(f.account, "2026-01-06", "6")),
+        ),
+        (
+            Method::PATCH,
             f.path(&format!("accounts/{}", f.account)),
             Some(json!({ "name": "Renamed" })),
         ),
@@ -358,6 +363,7 @@ async fn a_strangers_portfolio_is_not_found() {
         ),
         (Method::POST, f.path("transactions")),
         (Method::DELETE, f.path("transactions/1")),
+        (Method::PATCH, f.path("transactions/1")),
     ];
     for (method, path) in writes {
         let reply = f

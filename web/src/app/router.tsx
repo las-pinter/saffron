@@ -1,5 +1,6 @@
 import { createBrowserRouter, type RouteObject } from 'react-router'
 import { RequireAuth, RequireGuest, RequireSetup } from '@/auth/RequireAuth'
+import { HoldingsPage } from '@/pages/HoldingsPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { SetupPage } from '@/pages/SetupPage'
@@ -22,7 +23,7 @@ export const routes: RouteObject[] = [
         element: <Layout />,
         children: [
           { index: true, element: <Placeholder /> },
-          { path: 'holdings', element: <Placeholder /> },
+          { path: 'holdings', element: <HoldingsPage /> },
           { path: 'discover', element: <Placeholder /> },
           { path: 'ai', element: <Placeholder /> },
           { path: 'settings', element: <SettingsPage /> },

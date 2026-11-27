@@ -20,6 +20,34 @@ for (const path of SIGNED_IN_PAGES) {
   })
 }
 
+test('the portfolio menu does not scroll sideways at 390 px', async ({ page }) => {
+  await stubApi(page, {
+    ...signedIn(),
+    '/portfolios': {
+      body: [
+        {
+          id: 9,
+          name: 'Household',
+          base_currency: 'EUR',
+          benchmark_instrument_id: null,
+          role: 'owner',
+          owner: { id: 1, username: 'las', display_name: 'Laszlo' },
+          created_at: '2026-11-20T09:00:00Z',
+          archived_at: null,
+        },
+      ],
+    },
+    '/portfolios/9/accounts': { body: [] },
+    '/portfolios/9/transactions': { body: [] },
+    '/portfolios/9/holdings': { body: [] },
+  })
+  await page.goto('/holdings')
+  await page.locator('summary', { hasText: 'Household' }).click()
+  await expect(page.getByRole('button', { name: /Household/ })).toBeVisible()
+
+  await expectNoHorizontalScroll(page)
+})
+
 test('the sign-in screen does not scroll sideways at 390 px', async ({ page }) => {
   await stubApi(page, { '/auth/state': { body: { setup_required: false, user: null } } })
   await page.goto('/login')
