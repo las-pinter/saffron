@@ -23,6 +23,10 @@ services:
       # gateway. Trust that range so `X-Forwarded-For` from your proxy names the
       # real client; without it, failed sign-ins from anyone throttle everyone.
       # SAFFRON_TRUSTED_PROXIES: "172.16.0.0/12"
+      #
+      # The installation's time zone: the daily fund price refresh falls due here
+      # after 20:00.
+      # SAFFRON_TIMEZONE: "Europe/Helsinki"
     volumes:
       - saffron-data:/data
     read_only: true

@@ -82,6 +82,9 @@ pub struct InstrumentView {
     pub created_at: String,
     /// Where providers list it, primary first.
     pub listings: Vec<ListingView>,
+    /// Its latest price; `None` until one is known.
+    #[serde(default)]
+    pub latest_price: Option<crate::prices::PriceView>,
 }
 
 /// A listing as the API shows it.
@@ -99,9 +102,19 @@ pub struct ListingView {
     pub is_primary: bool,
 }
 
+/// `instrument` as the API shows it, with its latest price.
+pub async fn view(state: &AppState, instrument: Instrument) -> ApiResult<InstrumentView> {
+    let latest_price = crate::prices::latest_view(state, &instrument).await?;
+    Ok(InstrumentView {
+        latest_price,
+        ..InstrumentView::from(instrument)
+    })
+}
+
 impl From<Instrument> for InstrumentView {
     fn from(instrument: Instrument) -> Self {
         Self {
+            latest_price: None,
             id: instrument.id,
             kind: instrument.kind.as_str().to_owned(),
             name: instrument.name,
@@ -130,7 +143,7 @@ pub async fn lookup(
     QueryParam(query): QueryParam<LookupQuery>,
 ) -> ApiResult<Json<LookupView>> {
     let text = validate_query(&query.q)?;
-    let hits = match state.yahoo.search(text).await {
+    let hits = match state.market.yahoo.search(text).await {
         Ok(hits) => hits,
         Err(MarketError::NotFound) => Vec::new(),
         Err(error) => return Err(provider_failure(&error)),
@@ -177,6 +190,7 @@ pub async fn create(
         confirm_isin(&state, isin, symbol).await?;
     }
     let listing = state
+        .market
         .yahoo
         .details(symbol)
         .await
@@ -235,7 +249,7 @@ pub async fn show(
     let instrument = instruments::get(&state.pool, id)
         .await?
         .ok_or_else(ApiError::not_found)?;
-    Ok(Json(InstrumentView::from(instrument)))
+    Ok(Json(view(&state, instrument).await?))
 }
 
 /// Stores `listing`: on the instrument with `isin` when Saffron has one, or as a
@@ -250,6 +264,7 @@ async fn store(
         symbol: &listing.symbol,
         exchange: listing.exchange.as_deref(),
         currency: &listing.quote_currency,
+        timezone: listing.timezone.as_deref(),
     };
     let existing = match isin {
         Some(isin) => instruments::id_by_isin(&state.pool, isin.as_str()).await?,
@@ -290,7 +305,7 @@ async fn store(
 /// Refuses an ISIN under which Yahoo does not list `symbol`, so an instrument
 /// never carries another instrument's ISIN.
 async fn confirm_isin(state: &AppState, isin: &Isin, symbol: &str) -> ApiResult<()> {
-    let hits = match state.yahoo.search(isin.as_str()).await {
+    let hits = match state.market.yahoo.search(isin.as_str()).await {
         Ok(hits) => hits,
         Err(MarketError::NotFound) => Vec::new(),
         Err(error) => return Err(provider_failure(&error)),
@@ -315,7 +330,7 @@ async fn found(
     let instrument = instruments::get(&state.pool, id)
         .await?
         .ok_or_else(|| ApiError::internal("a stored instrument cannot be read back"))?;
-    Ok((status, Json(InstrumentView::from(instrument))))
+    Ok((status, Json(view(state, instrument).await?)))
 }
 
 fn provider_failure(error: &MarketError) -> ApiError {

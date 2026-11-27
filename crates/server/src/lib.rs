@@ -7,9 +7,12 @@ mod health;
 pub mod healthcheck;
 pub mod instruments;
 pub mod portfolios;
+pub mod prices;
+pub mod refresh;
 pub mod request;
 pub mod secrets;
 pub mod security;
+pub mod settings;
 pub mod state;
 mod static_files;
 pub mod users;
@@ -18,7 +21,7 @@ use axum::{
     Router,
     http::StatusCode,
     middleware,
-    routing::{any, delete, get, post},
+    routing::{any, delete, get, post, put},
 };
 
 pub use health::HealthResponse;
@@ -82,6 +85,9 @@ fn api(state: AppState) -> Router {
         .route("/instruments", post(instruments::create))
         .route("/instruments/lookup", get(instruments::lookup))
         .route("/instruments/{id}", get(instruments::show))
+        .route("/instruments/{id}/prices", get(prices::history))
+        .route("/instruments/{id}/prices/{date}", put(prices::enter))
+        .route("/settings", get(settings::show).patch(settings::update))
         .route("/users", get(users::list).post(users::create))
         .route("/users/{id}/disable", post(users::disable))
         .route("/users/{id}/enable", post(users::enable))

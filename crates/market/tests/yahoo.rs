@@ -7,11 +7,11 @@ use std::{
 
 use reqwest::StatusCode;
 use saffron_core::instrument::InstrumentKind;
-use saffron_market::{Listing, MarketError, SearchHit, mock::MockYahoo, yahoo::Yahoo};
+use saffron_market::{DailyClose, Listing, MarketError, SearchHit, mock::MockMarket, yahoo::Yahoo};
 
 #[tokio::test]
 async fn an_op_fund_isin_finds_its_yahoo_listing() {
-    let yahoo = MockYahoo::start().await;
+    let yahoo = MockMarket::start().await;
 
     let hits = yahoo.client().expect("client").search("FI4000315700").await;
 
@@ -28,7 +28,7 @@ async fn an_op_fund_isin_finds_its_yahoo_listing() {
 
 #[tokio::test]
 async fn the_op_fund_listing_is_valued_in_euros() {
-    let yahoo = MockYahoo::start().await;
+    let yahoo = MockMarket::start().await;
 
     let listing = yahoo
         .client()
@@ -45,13 +45,14 @@ async fn the_op_fund_listing_is_valued_in_euros() {
             currency: "EUR".to_owned(),
             quote_currency: "EUR".to_owned(),
             exchange: Some("Frankfurt".to_owned()),
+            timezone: Some("Europe/Berlin".to_owned()),
         }
     );
 }
 
 #[tokio::test]
 async fn a_name_search_finds_the_helsinki_listing() {
-    let yahoo = MockYahoo::start().await;
+    let yahoo = MockMarket::start().await;
 
     let hits = yahoo
         .client()
@@ -69,7 +70,7 @@ async fn a_name_search_finds_the_helsinki_listing() {
 
 #[tokio::test]
 async fn an_etf_isin_finds_its_listing() {
-    let yahoo = MockYahoo::start().await;
+    let yahoo = MockMarket::start().await;
 
     let hits = yahoo
         .client()
@@ -88,7 +89,7 @@ async fn an_etf_isin_finds_its_listing() {
 
 #[tokio::test]
 async fn an_index_is_left_out_of_the_results() {
-    let yahoo = MockYahoo::start().await;
+    let yahoo = MockMarket::start().await;
 
     let hits = yahoo.client().expect("client").search("omxh25").await;
 
@@ -97,7 +98,7 @@ async fn an_index_is_left_out_of_the_results() {
 
 #[tokio::test]
 async fn an_unknown_symbol_is_not_found() {
-    let yahoo = MockYahoo::start().await;
+    let yahoo = MockMarket::start().await;
 
     let listing = yahoo.client().expect("client").details("NOSUCH123XX").await;
 
@@ -106,7 +107,7 @@ async fn an_unknown_symbol_is_not_found() {
 
 #[tokio::test]
 async fn a_429_is_reported_as_rate_limited() {
-    let yahoo = MockYahoo::start().await;
+    let yahoo = MockMarket::start().await;
     yahoo.fail_with(StatusCode::TOO_MANY_REQUESTS);
 
     let hits = yahoo.client().expect("client").search("nokia").await;
@@ -116,7 +117,7 @@ async fn a_429_is_reported_as_rate_limited() {
 
 #[tokio::test]
 async fn a_server_error_is_reported_as_unavailable() {
-    let yahoo = MockYahoo::start().await;
+    let yahoo = MockMarket::start().await;
     yahoo.fail_with(StatusCode::BAD_GATEWAY);
 
     let hits = yahoo.client().expect("client").search("nokia").await;
@@ -126,7 +127,7 @@ async fn a_server_error_is_reported_as_unavailable() {
 
 #[tokio::test]
 async fn a_body_that_is_not_json_is_a_bad_response() {
-    let yahoo = MockYahoo::start().await;
+    let yahoo = MockMarket::start().await;
     yahoo.fail_with(StatusCode::NO_CONTENT);
 
     let hits = yahoo.client().expect("client").search("nokia").await;
@@ -145,7 +146,7 @@ async fn an_unreachable_provider_is_unavailable() {
 
 #[tokio::test]
 async fn requests_are_spaced_by_the_gap() {
-    let yahoo = MockYahoo::start().await;
+    let yahoo = MockMarket::start().await;
     let gap = Duration::from_millis(300);
     let client = Yahoo::new(&yahoo.url(), gap).expect("client");
     let started = Instant::now();
@@ -159,7 +160,7 @@ async fn requests_are_spaced_by_the_gap() {
 
 #[tokio::test]
 async fn an_index_listing_is_unsupported() {
-    let yahoo = MockYahoo::start().await;
+    let yahoo = MockMarket::start().await;
 
     let listing = yahoo.client().expect("client").details("^OMXH25").await;
 
@@ -171,7 +172,7 @@ async fn an_index_listing_is_unsupported() {
 
 #[tokio::test]
 async fn a_burst_beyond_the_waiting_limit_is_refused_as_busy() {
-    let yahoo = MockYahoo::start().await;
+    let yahoo = MockMarket::start().await;
     let client = Arc::new(Yahoo::new(&yahoo.url(), Duration::from_millis(200)).expect("client"));
     let mut burst = tokio::task::JoinSet::new();
     for _ in 0..8 {
@@ -187,4 +188,129 @@ async fn a_burst_beyond_the_waiting_limit_is_refused_as_busy() {
         .count();
     let answered = outcomes.iter().filter(|outcome| outcome.is_ok()).count();
     assert_eq!((answered, busy), (5, 3));
+}
+
+#[tokio::test]
+async fn quotes_arrive_for_every_symbol_in_one_answer() {
+    let market = MockMarket::start().await;
+
+    let spots = market
+        .client()
+        .expect("client")
+        .quotes(&["NOKIA.HE", "VOD.L", "NOSUCH123XX"])
+        .await
+        .expect("quotes");
+
+    let found: Vec<_> = spots
+        .iter()
+        .map(|spot| {
+            (
+                spot.symbol.as_str(),
+                spot.close.to_string(),
+                spot.at.to_string(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        found,
+        [
+            (
+                "NOKIA.HE",
+                "6.639999866485596".to_owned(),
+                "2026-11-26T16:29:43Z".to_owned()
+            ),
+            (
+                "VOD.L",
+                "103.05000305175781".to_owned(),
+                "2026-11-26T18:21:18Z".to_owned()
+            ),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn no_symbols_asks_nothing() {
+    let market = MockMarket::start().await;
+
+    let spots = market
+        .client()
+        .expect("client")
+        .quotes(&[])
+        .await
+        .expect("quotes");
+
+    assert_eq!((spots, market.requests()), (Vec::new(), 0));
+}
+
+#[tokio::test]
+async fn daily_history_is_valued_in_the_major_currency() {
+    let market = MockMarket::start().await;
+
+    let history = market
+        .client()
+        .expect("client")
+        .history(
+            "VOD.L",
+            jiff::civil::date(2026, 11, 20),
+            jiff::civil::date(2026, 11, 26),
+        )
+        .await
+        .expect("history");
+
+    assert_eq!(
+        (
+            history.symbol.as_str(),
+            history.currency.as_str(),
+            history.closes
+        ),
+        (
+            "VOD.L",
+            "GBP",
+            vec![DailyClose {
+                date: jiff::civil::date(2026, 11, 26),
+                close: "1.0305000305175781".parse().expect("decimal"),
+            }]
+        )
+    );
+}
+
+#[tokio::test]
+async fn history_of_an_unknown_symbol_is_not_found() {
+    let market = MockMarket::start().await;
+
+    let history = market
+        .client()
+        .expect("client")
+        .history(
+            "NOSUCH123XX",
+            jiff::civil::date(2026, 11, 20),
+            jiff::civil::date(2026, 11, 26),
+        )
+        .await;
+
+    assert!(matches!(history, Err(MarketError::NotFound)), "{history:?}");
+}
+
+#[test]
+fn minor_units_are_converted_to_their_major_currency() {
+    use std::str::FromStr;
+
+    use saffron_market::normalize;
+
+    let pence = normalize(
+        "GBp",
+        rust_decimal::Decimal::from_str("250").expect("decimal"),
+    );
+    let euro = normalize(
+        "EUR",
+        rust_decimal::Decimal::from_str("136.87").expect("decimal"),
+    );
+
+    assert_eq!(
+        (pence, euro),
+        (
+            Some(("GBP".to_owned(), "2.5".parse().expect("decimal"))),
+            Some(("EUR".to_owned(), "136.87".parse().expect("decimal"))),
+        )
+    );
 }

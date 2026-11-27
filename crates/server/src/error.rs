@@ -19,6 +19,18 @@ pub struct ApiError {
     retry_after_secs: Option<i64>,
 }
 
+impl Display for ApiError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "{} {}: {}",
+            self.status.as_u16(),
+            self.code,
+            self.message
+        )
+    }
+}
+
 /// The response body of an [`ApiError`].
 #[derive(Debug, Serialize)]
 struct Body<'a> {

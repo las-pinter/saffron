@@ -7,7 +7,9 @@ pub mod instruments;
 pub mod login_throttle;
 pub mod passkeys;
 pub mod portfolios;
+pub mod prices;
 pub mod sessions;
+pub mod settings;
 pub mod time;
 pub mod users;
 

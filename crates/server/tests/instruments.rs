@@ -55,6 +55,7 @@ async fn adding_the_op_fund_stores_it_in_euros() {
             "isin": "FI4000315700",
             "currency": "EUR",
             "created_at": "2026-11-25T12:00:00Z",
+            "latest_price": null,
             "listings": [{
                 "provider": "yahoo",
                 "symbol": "0P0001DHRJ.F",

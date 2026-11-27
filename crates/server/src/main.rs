@@ -76,9 +76,14 @@ async fn serve(addr: SocketAddr) -> anyhow::Result<()> {
     let secrets = SecretBox::load_or_create(&key_file, stored)
         .await
         .with_context(|| format!("cannot load the secret key {}", key_file.display()))?;
-    let yahoo =
-        saffron_market::yahoo::Yahoo::live().context("cannot build the Yahoo Finance client")?;
-    let state = AppState::new(pool.clone(), origin, Clock::system(), secrets, yahoo)
+    let market =
+        saffron_market::Providers::live().context("cannot build the market data clients")?;
+    let timezone_name = std::env::var("SAFFRON_TIMEZONE")
+        .unwrap_or_else(|_| saffron_server::state::DEFAULT_TIMEZONE.to_owned());
+    let timezone = jiff::tz::TimeZone::get(&timezone_name)
+        .with_context(|| format!("SAFFRON_TIMEZONE is not a known time zone: {timezone_name}"))?;
+    let state = AppState::new(pool.clone(), origin, Clock::system(), secrets, market)
+        .with_timezone(timezone)
         .with_trusted_proxies(trusted_proxies);
     if state.webauthn.is_none() {
         tracing::warn!(
@@ -87,6 +92,7 @@ async fn serve(addr: SocketAddr) -> anyhow::Result<()> {
         );
     }
     announce_setup(&state).await?;
+    saffron_server::refresh::spawn(state.clone());
     tracing::info!(%addr, origin = %state.origin.as_str(), "saffron listening");
 
     let app = saffron_server::app(state).into_make_service_with_connect_info::<SocketAddr>();

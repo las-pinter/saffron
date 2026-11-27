@@ -71,6 +71,7 @@ Settings, all optional, as environment variables (see `compose.yaml`):
 | `SAFFRON_TRUSTED_PROXIES` | none | Comma-separated addresses or CIDR ranges of proxies whose `X-Forwarded-For` header names the client, for per-client sign-in throttling. |
 | `SAFFRON_BIND` | `127.0.0.1:8640` (`0.0.0.0:8640` in the image) | Listen address. |
 | `SAFFRON_DATA_DIR` | `data` (`/data` in the image) | Database directory. |
+| `SAFFRON_TIMEZONE` | `Europe/Helsinki` | The installation's IANA time zone: the daily fund price refresh falls due here after 20:00, and a hand-entered price counts towards this zone's calendar day. |
 
 ### Backups
 

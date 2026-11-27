@@ -29,6 +29,7 @@ fn yahoo(symbol: &str) -> NewListing<'_> {
         symbol,
         exchange: Some("Frankfurt"),
         currency: "EUR",
+        timezone: Some("Europe/Berlin"),
     }
 }
 
@@ -69,6 +70,7 @@ async fn an_instrument_is_stored_with_its_primary_listing() {
                 exchange: Some("Frankfurt".to_owned()),
                 currency: "EUR".to_owned(),
                 is_primary: true,
+                timezone: Some("Europe/Berlin".to_owned()),
             }]
         )
     );

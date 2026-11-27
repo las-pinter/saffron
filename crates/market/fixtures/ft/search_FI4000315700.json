@@ -1,0 +1,15 @@
+{
+    "data": {
+        "security": [
+            {
+                "url": "~/funds/tearsheet/summary?s=FI4000315700:EUR",
+                "urlChart": "~/funds/tearsheet/charts?s=FI4000315700:EUR",
+                "name": "OP-Suomi Indeksi B",
+                "symbol": "FI4000315700:EUR",
+                "xid": "118011809",
+                "isPrimary": true,
+                "assetClass": "Funds"
+            }
+        ]
+    }
+}

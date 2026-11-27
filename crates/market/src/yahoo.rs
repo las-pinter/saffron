@@ -1,17 +1,17 @@
-//! Yahoo Finance: symbol search and listing details.
+//! Yahoo Finance: symbol search, listing details, batched quotes, and history.
 //!
-//! The endpoints are unofficial and need no account. Yahoo answers 429 to clients
-//! without a browser-like `User-Agent`, so the client sends one. Requests are
-//! spaced at least [`Yahoo::gap`] apart to stay well under its limits.
+//! The endpoints are unofficial and need no account. Requests go through the
+//! shared [`Client`], which sends a browser-like `User-Agent` and spaces them
+//! [`LIVE_GAP`] apart.
 
-use std::time::Duration;
+use std::{str::FromStr, time::Duration};
 
+use jiff::{Timestamp, civil::Date, civil::Time, tz::TimeZone};
+use rust_decimal::Decimal;
 use saffron_core::instrument::InstrumentKind;
-use serde::{Deserialize, de::DeserializeOwned};
-use tokio::{sync::Mutex, time::Instant};
-use url::Url;
+use serde::Deserialize;
 
-use crate::{Listing, MarketError, SearchHit};
+use crate::{DailyClose, History, Listing, MarketError, SearchHit, Spot, client::Client};
 
 /// The name Saffron stores for this provider.
 pub const PROVIDER: &str = "yahoo";
@@ -19,22 +19,13 @@ pub const PROVIDER: &str = "yahoo";
 pub const LIVE_URL: &str = "https://query2.finance.yahoo.com";
 /// The shortest time between two requests to the live endpoints.
 pub const LIVE_GAP: Duration = Duration::from_secs(1);
-/// Most requests that may wait for their turn; more are refused as
-/// [`MarketError::Busy`], so one burst cannot park every handler.
-pub const MAX_WAITING: u32 = 4;
 /// Most results one search returns.
 pub const SEARCH_LIMIT: usize = 10;
-
-const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0";
-const TIMEOUT: Duration = Duration::from_secs(10);
 
 /// A Yahoo Finance client.
 #[derive(Debug)]
 pub struct Yahoo {
-    http: reqwest::Client,
-    base: Url,
-    gap: Duration,
-    next_slot: Mutex<Instant>,
+    client: Client,
 }
 
 impl Yahoo {
@@ -45,41 +36,22 @@ impl Yahoo {
 
     /// A client for the endpoints at `base`, spacing requests `gap` apart.
     pub fn new(base: &str, gap: Duration) -> Result<Self, MarketError> {
-        // reqwest is built without a TLS provider so that aws-lc stays out of the
-        // build; ring is installed here. A second install fails harmlessly.
-        let _ = rustls::crypto::ring::default_provider().install_default();
-        let base = Url::parse(base)
-            .map_err(|error| MarketError::Unavailable(format!("bad Yahoo URL {base}: {error}")))?;
-        let http = reqwest::Client::builder()
-            .user_agent(USER_AGENT)
-            .timeout(TIMEOUT)
-            .build()
-            .map_err(|error| MarketError::Unavailable(error.to_string()))?;
         Ok(Self {
-            http,
-            base,
-            gap,
-            next_slot: Mutex::new(Instant::now()),
+            client: Client::new(base, gap)?,
         })
-    }
-
-    /// The shortest time between two requests.
-    #[must_use]
-    pub const fn gap(&self) -> Duration {
-        self.gap
     }
 
     /// Listings matching an ISIN, a symbol, or a name. Kinds Saffron cannot hold,
     /// such as indices and currencies, are left out.
     pub async fn search(&self, query: &str) -> Result<Vec<SearchHit>, MarketError> {
-        let mut url = self.url(&["v1", "finance", "search"]);
+        let mut url = self.client.url(&["v1", "finance", "search"]);
         url.query_pairs_mut()
             .append_pair("q", query)
             .append_pair("quotesCount", &SEARCH_LIMIT.to_string())
             .append_pair("newsCount", "0")
             .append_pair("listsCount", "0")
             .append_pair("enableFuzzyQuery", "false");
-        let found: SearchResponse = self.fetch(url).await?;
+        let found: SearchResponse = self.client.get_json(url).await?;
         Ok(found
             .quotes
             .into_iter()
@@ -87,10 +59,102 @@ impl Yahoo {
             .collect())
     }
 
+    /// The latest price of each of `symbols` in one request, quoted in the
+    /// provider's currency (`GBp` stays pence; see [`crate::normalize`]). Symbols
+    /// the provider has no price for are left out.
+    pub async fn quotes(&self, symbols: &[&str]) -> Result<Vec<Spot>, MarketError> {
+        if symbols.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut url = self.client.url(&["v8", "finance", "spark"]);
+        url.query_pairs_mut()
+            .append_pair("symbols", &symbols.join(","))
+            .append_pair("range", "1d")
+            .append_pair("interval", "1d");
+        let answer: serde_json::Value = self.client.get_json(url).await?;
+        let spots = spark_spots(&answer)?;
+        if spots.is_empty() {
+            return Err(MarketError::BadResponse(
+                "the quote answer holds no price series".to_owned(),
+            ));
+        }
+        Ok(spots)
+    }
+
+    /// The daily closes of `symbol` from `from` to `to`, oldest first, valued in
+    /// the major currency (see [`crate::normalize`]).
+    pub async fn history(
+        &self,
+        symbol: &str,
+        from: Date,
+        to: Date,
+    ) -> Result<History, MarketError> {
+        let mut url = self.client.url(&["v8", "finance", "chart", symbol]);
+        let midnight = |date: Date| {
+            TimeZone::UTC
+                .to_timestamp(date.to_datetime(Time::midnight()))
+                .map(jiff::Timestamp::as_second)
+        };
+        let (Ok(from), Ok(to)) = (midnight(from), midnight(to)) else {
+            return Err(MarketError::BadResponse("dates out of range".to_owned()));
+        };
+        url.query_pairs_mut()
+            .append_pair("period1", &from.to_string())
+            .append_pair("period2", &(to + 24 * 60 * 60).to_string())
+            .append_pair("interval", "1d");
+        let chart: ChartResponse = self.client.get_json(url).await?;
+        let result = chart
+            .chart
+            .result
+            .and_then(|results| results.into_iter().next())
+            .ok_or(MarketError::NotFound)?;
+        let quoted = result
+            .meta
+            .currency
+            .clone()
+            .ok_or_else(|| MarketError::BadResponse(format!("{symbol} has no currency")))?;
+        let timezone = result
+            .meta
+            .exchange_timezone_name
+            .as_deref()
+            .and_then(|name| TimeZone::get(name).ok())
+            .unwrap_or(TimeZone::UTC);
+        let closes = result
+            .indicators
+            .quote
+            .into_iter()
+            .next()
+            .unwrap_or_default();
+        let mut history = History {
+            symbol: result.meta.symbol,
+            ..History::default()
+        };
+        for (timestamp, close) in result.timestamp.iter().zip(closes.close) {
+            let Some(close) = decimal_of(&close) else {
+                continue;
+            };
+            let date = Timestamp::from_second(*timestamp)
+                .map_err(|error| MarketError::BadResponse(error.to_string()))?
+                .to_zoned_datetime(timezone.clone())
+                .date();
+            let (currency, close) = crate::normalize(&quoted, close).ok_or_else(|| {
+                MarketError::BadResponse(format!("{symbol} has currency {quoted:?}"))
+            })?;
+            history.currency = currency;
+            history.closes.push(DailyClose { date, close });
+        }
+        if history.closes.is_empty() {
+            return Err(MarketError::NotFound);
+        }
+        history.closes.sort_by_key(|close| close.date);
+        history.closes.dedup_by_key(|close| close.date);
+        Ok(history)
+    }
+
     /// The listing `symbol`: its name, kind, currency, and exchange.
     pub async fn details(&self, symbol: &str) -> Result<Listing, MarketError> {
-        let url = self.url(&["v8", "finance", "chart", symbol]);
-        let chart: ChartResponse = self.fetch(url).await?;
+        let url = self.client.url(&["v8", "finance", "chart", symbol]);
+        let chart: ChartResponse = self.client.get_json(url).await?;
         let meta = chart
             .chart
             .result
@@ -98,51 +162,6 @@ impl Yahoo {
             .ok_or(MarketError::NotFound)?
             .meta;
         meta.listing()
-    }
-
-    fn url(&self, segments: &[&str]) -> Url {
-        let mut url = self.base.clone();
-        url.path_segments_mut()
-            .expect("an http URL has path segments")
-            .pop_if_empty()
-            .extend(segments);
-        url
-    }
-
-    async fn fetch<T: DeserializeOwned>(&self, url: Url) -> Result<T, MarketError> {
-        self.wait_for_slot().await?;
-        let response = self
-            .http
-            .get(url)
-            .send()
-            .await
-            .map_err(|error| MarketError::Unavailable(error.without_url().to_string()))?;
-        match response.status().as_u16() {
-            200..=299 => {}
-            404 => return Err(MarketError::NotFound),
-            429 => return Err(MarketError::RateLimited),
-            status => return Err(MarketError::Unavailable(format!("HTTP {status}"))),
-        }
-        let body = response
-            .bytes()
-            .await
-            .map_err(|error| MarketError::Unavailable(error.without_url().to_string()))?;
-        serde_json::from_slice(&body).map_err(|error| MarketError::BadResponse(error.to_string()))
-    }
-
-    async fn wait_for_slot(&self) -> Result<(), MarketError> {
-        let start = {
-            let mut next = self.next_slot.lock().await;
-            let now = Instant::now();
-            let start = (*next).max(now);
-            if start > now + self.gap * MAX_WAITING {
-                return Err(MarketError::Busy);
-            }
-            *next = start + self.gap;
-            start
-        };
-        tokio::time::sleep_until(start).await;
-        Ok(())
     }
 }
 
@@ -194,6 +213,22 @@ struct Chart {
 #[derive(Debug, Deserialize)]
 struct ChartResult {
     meta: ChartMeta,
+    #[serde(default)]
+    timestamp: Vec<i64>,
+    #[serde(default)]
+    indicators: Indicators,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct Indicators {
+    #[serde(default)]
+    quote: Vec<ChartQuote>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct ChartQuote {
+    #[serde(default)]
+    close: Vec<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -205,6 +240,7 @@ struct ChartMeta {
     long_name: Option<String>,
     short_name: Option<String>,
     full_exchange_name: Option<String>,
+    exchange_timezone_name: Option<String>,
 }
 
 impl ChartMeta {
@@ -227,6 +263,7 @@ impl ChartMeta {
             currency,
             quote_currency,
             exchange: self.full_exchange_name,
+            timezone: self.exchange_timezone_name,
         })
     }
 }
@@ -253,9 +290,55 @@ fn name(candidates: [Option<String>; 2], symbol: &str) -> String {
         .unwrap_or_else(|| symbol.to_owned())
 }
 
+/// The spots in a spark answer, which maps each symbol to its recent closes.
+#[allow(clippy::missing_docs_in_private_items)]
+fn spark_spots(answer: &serde_json::Value) -> Result<Vec<Spot>, MarketError> {
+    let mut spots = Vec::new();
+    let parsed = answer.as_object().ok_or_else(|| {
+        MarketError::BadResponse("the quote answer is not a map of symbols".to_owned())
+    })?;
+    for (symbol, series) in parsed {
+        let timestamps = series
+            .get("timestamp")
+            .and_then(serde_json::Value::as_array);
+        let closes = series.get("close").and_then(serde_json::Value::as_array);
+        let (Some(timestamps), Some(closes)) = (timestamps, closes) else {
+            continue;
+        };
+        let newest = timestamps
+            .iter()
+            .zip(closes)
+            .rev()
+            .find_map(|(at, close)| Some((at.as_i64()?, decimal_of(close)?)));
+        let Some((at, close)) = newest else {
+            continue;
+        };
+        spots.push(Spot {
+            symbol: symbol.clone(),
+            at: Timestamp::from_second(at)
+                .map_err(|error| MarketError::BadResponse(error.to_string()))?,
+            close,
+        });
+    }
+    if spots.is_empty() {
+        return Err(MarketError::BadResponse(
+            "the quote answer holds no price series".to_owned(),
+        ));
+    }
+    Ok(spots)
+}
+
+/// Reads a JSON number exactly: its own text, never a round trip through `f64`.
+fn decimal_of(value: &serde_json::Value) -> Option<Decimal> {
+    match value {
+        serde_json::Value::Number(number) => Decimal::from_str(&number.to_string()).ok(),
+        _ => None,
+    }
+}
+
 /// The ISO 4217 currency and the quote currency for a Yahoo currency. Yahoo writes
 /// minor units in mixed case: `GBp` is pence, quoted as `GBX`.
-fn currencies(yahoo: &str) -> Option<(String, String)> {
+pub(crate) fn currencies(yahoo: &str) -> Option<(String, String)> {
     let (major, quoted) = match yahoo {
         "GBp" | "GBX" => ("GBP", "GBX"),
         "ZAc" | "ZAC" => ("ZAR", "ZAC"),
@@ -301,5 +384,28 @@ mod tests {
     #[test]
     fn a_blank_name_falls_back_to_the_symbol() {
         assert_eq!(name([Some("  ".to_owned()), None], "X.HE"), "X.HE");
+    }
+
+    #[test]
+    fn a_wrapped_answer_is_a_bad_response() {
+        let wrapped = serde_json::json!({ "spark": { "result": [] } });
+
+        assert!(matches!(
+            spark_spots(&wrapped),
+            Err(MarketError::BadResponse(_))
+        ));
+    }
+
+    #[test]
+    fn a_series_without_a_close_is_left_out() {
+        let answer = serde_json::json!({
+            "NOKIA.HE": { "timestamp": [1], "close": [null] },
+            "VOD.L": { "timestamp": [2], "close": [1.5] }
+        });
+
+        let spots = spark_spots(&answer).expect("spots");
+
+        assert_eq!(spots.len(), 1);
+        assert_eq!(spots[0].symbol, "VOD.L");
     }
 }

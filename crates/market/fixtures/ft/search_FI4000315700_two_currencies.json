@@ -1,0 +1,4 @@
+{"data":{"security":[
+ {"url":"~/funds/tearsheet/summary?s=FI4000315700:USD","name":"OP-Suomi Indeksi B","symbol":"FI4000315700:USD","xid":"999999","isPrimary":true,"assetClass":"Funds"},
+ {"url":"~/funds/tearsheet/summary?s=FI4000315700:EUR","name":"OP-Suomi Indeksi B","symbol":"FI4000315700:EUR","xid":"118011809","isPrimary":false,"assetClass":"Funds"}
+]}}

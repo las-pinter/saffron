@@ -25,6 +25,7 @@ getrandom.workspace = true
 jiff.workspace = true
 mime_guess.workspace = true
 rust-embed.workspace = true
+rust_decimal.workspace = true
 saffron-core.workspace = true
 saffron-db.workspace = true
 saffron-market.workspace = true

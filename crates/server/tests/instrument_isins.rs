@@ -45,6 +45,7 @@ async fn a_listing_with_the_isin_of_a_known_instrument_joins_it() {
         symbol: "IWDA:LSE:USD",
         exchange: None,
         currency: "EUR",
+        timezone: None,
     };
     let id = instruments::create(&market.app.state.pool, etf, elsewhere, now)
         .await
@@ -107,6 +108,7 @@ async fn a_joined_listing_keeps_its_own_currency() {
         symbol: "IWDA:AEX:EUR",
         exchange: None,
         currency: "EUR",
+        timezone: None,
     };
     instruments::create(&market.app.state.pool, etf, amsterdam, now)
         .await
@@ -143,6 +145,7 @@ async fn a_joined_listing_is_audited() {
         symbol: "FI4000315700:EUR",
         exchange: None,
         currency: "EUR",
+        timezone: None,
     };
     instruments::create(&market.app.state.pool, fund, elsewhere, now)
         .await

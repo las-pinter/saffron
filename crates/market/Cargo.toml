@@ -13,7 +13,9 @@ test-support = ["dep:axum", "tokio/net", "tokio/rt"]
 
 [dependencies]
 axum = { workspace = true, optional = true }
+jiff.workspace = true
 reqwest.workspace = true
+rust_decimal.workspace = true
 rustls.workspace = true
 saffron-core.workspace = true
 serde.workspace = true
@@ -24,7 +26,7 @@ url.workspace = true
 
 [dev-dependencies]
 saffron-market = { path = ".", features = ["test-support"] }
-tokio.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
 
 [lints]
 workspace = true

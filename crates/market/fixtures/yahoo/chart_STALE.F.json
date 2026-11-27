@@ -1,0 +1,37 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "EUR",
+          "symbol": "STALE.F",
+          "exchangeName": "FRA",
+          "fullExchangeName": "Frankfurt",
+          "instrumentType": "MUTUALFUND",
+          "regularMarketTime": 1764072000,
+          "timezone": "CET",
+          "exchangeTimezoneName": "Europe/Berlin",
+          "longName": "OP-Stale Fund",
+          "shortName": "OP-Stale",
+          "chartPreviousClose": 100.0,
+          "priceHint": 2,
+          "dataGranularity": "1d",
+          "range": "1d"
+        },
+        "timestamp": [
+          1764072000
+        ],
+        "indicators": {
+          "quote": [
+            {
+              "close": [
+                100.0
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

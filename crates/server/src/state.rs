@@ -2,7 +2,8 @@
 
 use std::sync::Arc;
 
-use saffron_market::yahoo::Yahoo;
+use jiff::tz::TimeZone;
+use saffron_market::Providers;
 use sqlx::SqlitePool;
 
 use tokio::sync::{Mutex, Semaphore};
@@ -41,23 +42,28 @@ pub struct AppState {
     pub sign_in_gate: Arc<Mutex<()>>,
     /// Bounds how many sign-ins may wait for [`Self::sign_in_gate`].
     pub sign_in_queue: Arc<Semaphore>,
-    /// Yahoo Finance, for instrument lookup.
-    pub yahoo: Arc<Yahoo>,
+    /// The market data providers.
+    pub market: Arc<Providers>,
+    /// The time zone of scheduled jobs such as the daily fund refresh.
+    pub timezone: TimeZone,
 }
+
+/// The time zone of scheduled jobs unless `SAFFRON_TIMEZONE` names another.
+pub const DEFAULT_TIMEZONE: &str = "Europe/Helsinki";
 
 /// Sign-ins that may wait for their turn at once; more are refused with 429.
 pub const MAX_QUEUED_SIGN_INS: usize = 16;
 
 impl AppState {
-    /// State over `pool` for `origin`, sealing secrets with `secrets` and looking
-    /// instruments up at `yahoo`.
+    /// State over `pool` for `origin`, sealing secrets with `secrets` and reading
+    /// market data from `market`. Scheduled jobs run in [`DEFAULT_TIMEZONE`].
     #[must_use]
     pub fn new(
         pool: SqlitePool,
         origin: PublicOrigin,
         clock: Clock,
         secrets: SecretBox,
-        yahoo: Yahoo,
+        market: Providers,
     ) -> Self {
         Self {
             pool,
@@ -70,8 +76,16 @@ impl AppState {
             trusted_proxies: Arc::new([]),
             sign_in_gate: Arc::new(Mutex::new(())),
             sign_in_queue: Arc::new(Semaphore::new(MAX_QUEUED_SIGN_INS)),
-            yahoo: Arc::new(yahoo),
+            market: Arc::new(market),
+            timezone: TimeZone::get(DEFAULT_TIMEZONE).unwrap_or(TimeZone::UTC),
         }
+    }
+
+    /// Runs scheduled jobs in `timezone`.
+    #[must_use]
+    pub fn with_timezone(mut self, timezone: TimeZone) -> Self {
+        self.timezone = timezone;
+        self
     }
 
     /// Believes `X-Forwarded-For` from `proxies`.

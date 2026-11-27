@@ -2501,6 +2501,9 @@ version = "0.1.0"
 [[package]]
 name = "saffron-core"
 version = "0.1.0"
+dependencies = [
+ "jiff 1.0.3",
+]
 
 [[package]]
 name = "saffron-db"
@@ -2521,7 +2524,9 @@ name = "saffron-market"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "jiff 1.0.3",
  "reqwest",
+ "rust_decimal",
  "rustls",
  "saffron-core",
  "saffron-market",
@@ -2552,6 +2557,7 @@ dependencies = [
  "mime_guess",
  "p256",
  "rust-embed",
+ "rust_decimal",
  "saffron-core",
  "saffron-db",
  "saffron-market",

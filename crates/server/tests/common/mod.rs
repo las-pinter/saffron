@@ -71,10 +71,14 @@ impl TestApp {
         let proxies =
             saffron_server::auth::client::parse_trusted_proxies(proxies).expect("trusted proxies");
         let secrets = saffron_server::secrets::SecretBox::random().expect("secret key");
-        let yahoo = saffron_market::yahoo::Yahoo::new(yahoo_url, std::time::Duration::ZERO)
-            .expect("Yahoo client");
+        let market = saffron_market::Providers {
+            yahoo: saffron_market::yahoo::Yahoo::new(yahoo_url, std::time::Duration::ZERO)
+                .expect("Yahoo client"),
+            ft: saffron_market::ft::Ft::new(yahoo_url, std::time::Duration::ZERO)
+                .expect("FT client"),
+        };
         let state =
-            AppState::new(pool, origin, clock, secrets, yahoo).with_trusted_proxies(proxies);
+            AppState::new(pool, origin, clock, secrets, market).with_trusted_proxies(proxies);
         Self {
             router: saffron_server::app(state.clone()),
             state,
