@@ -158,6 +158,15 @@ pub async fn list_for_account(
     rows.into_iter().map(from_row).collect()
 }
 
+/// The insert shared by [`create`] and [`create_all`].
+const INSERT_SQL: &str = concat!(
+    "INSERT INTO transactions ",
+    "(account_id, instrument_id, kind, trade_date, quantity, price, amount, fee, ",
+    "currency, fx_rate, note, created_by, created_at, updated_at) ",
+    "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13) ",
+    "RETURNING id"
+);
+
 /// Stores `transaction` and returns its id. The account must already belong to the
 /// portfolio the request is scoped to.
 pub async fn create(
@@ -166,29 +175,49 @@ pub async fn create(
     created_by: i64,
     now: Timestamp,
 ) -> Result<i64, sqlx::Error> {
-    let at = time::to_text(now);
-    sqlx::query_scalar(
-        "INSERT INTO transactions
-             (account_id, instrument_id, kind, trade_date, quantity, price, amount, fee,
-              currency, fx_rate, note, created_by, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)
-         RETURNING id",
-    )
-    .bind(transaction.account_id)
-    .bind(transaction.instrument_id)
-    .bind(transaction.kind.as_str())
-    .bind(transaction.date.to_string())
-    .bind(transaction.quantity.map(decimal::to_text))
-    .bind(transaction.price.map(decimal::to_text))
-    .bind(transaction.amount.map(decimal::to_text))
-    .bind(decimal::to_text(transaction.fee))
-    .bind(transaction.currency)
-    .bind(transaction.fx_rate.map(decimal::to_text))
-    .bind(transaction.note)
-    .bind(created_by)
-    .bind(at)
-    .fetch_one(pool)
-    .await
+    let mut connection = pool.acquire().await?;
+    insert(&mut connection, &transaction, created_by, now).await
+}
+
+/// Stores every transaction in one SQL transaction and returns their ids in order,
+/// so an import either lands whole or not at all.
+pub async fn create_all(
+    pool: &SqlitePool,
+    transactions: &[NewTransaction<'_>],
+    created_by: i64,
+    now: Timestamp,
+) -> Result<Vec<i64>, sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    let mut ids = Vec::with_capacity(transactions.len());
+    for transaction in transactions {
+        ids.push(insert(&mut tx, transaction, created_by, now).await?);
+    }
+    tx.commit().await?;
+    Ok(ids)
+}
+
+async fn insert(
+    connection: &mut sqlx::SqliteConnection,
+    transaction: &NewTransaction<'_>,
+    created_by: i64,
+    now: Timestamp,
+) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar(INSERT_SQL)
+        .bind(transaction.account_id)
+        .bind(transaction.instrument_id)
+        .bind(transaction.kind.as_str())
+        .bind(transaction.date.to_string())
+        .bind(transaction.quantity.map(decimal::to_text))
+        .bind(transaction.price.map(decimal::to_text))
+        .bind(transaction.amount.map(decimal::to_text))
+        .bind(decimal::to_text(transaction.fee))
+        .bind(transaction.currency)
+        .bind(transaction.fx_rate.map(decimal::to_text))
+        .bind(transaction.note)
+        .bind(created_by)
+        .bind(time::to_text(now))
+        .fetch_one(connection)
+        .await
 }
 
 /// Deletes transaction `id` when it is in `portfolio_id`. Returns whether a row

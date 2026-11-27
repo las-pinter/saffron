@@ -26,8 +26,9 @@ use crate::{
 
 /// The path parameter that names the portfolio.
 pub const PARAM: &str = "portfolio_id";
-/// Route endings that stay open on an archived portfolio, so it can be restored.
-const ARCHIVE_SWITCHES: [&str; 2] = ["/archive", "/unarchive"];
+/// Route endings that stay open on an archived portfolio: restoring it, and
+/// previewing an import, which writes nothing.
+const ARCHIVE_ALLOWED: [&str; 3] = ["/archive", "/unarchive", "/import/preview"];
 
 /// The signed-in user's access to the portfolio in the path, set by [`guard`].
 #[derive(Debug, Clone)]
@@ -82,7 +83,7 @@ pub async fn guard(
     let access = PortfolioAccess(Arc::new(access));
     if !is_read(request.method()) {
         access.require(Role::Editor)?;
-        if access.0.portfolio.archived_at.is_some() && !switches_archive(&request) {
+        if access.0.portfolio.archived_at.is_some() && !allows_archived_write(&request) {
             return Err(ApiError::conflict(
                 "archived",
                 "the portfolio is archived; restore it to change it",
@@ -93,12 +94,12 @@ pub async fn guard(
     Ok(next.run(request).await)
 }
 
-fn switches_archive(request: &Request) -> bool {
+fn allows_archived_write(request: &Request) -> bool {
     request
         .extensions()
         .get::<MatchedPath>()
         .is_some_and(|path| {
-            ARCHIVE_SWITCHES
+            ARCHIVE_ALLOWED
                 .iter()
                 .any(|end| path.as_str().ends_with(end))
         })

@@ -79,28 +79,39 @@ pub async fn show(
     State(state): State<AppState>,
     access: PortfolioAccess,
 ) -> ApiResult<Json<Vec<AccountHoldings>>> {
-    let portfolio_id = access.0.portfolio.id;
+    Ok(Json(load(&state, access.0.portfolio.id).await?))
+}
+
+/// The holdings view of `portfolio_id`, for the endpoint and the JSON export.
+pub(crate) async fn load(state: &AppState, portfolio_id: i64) -> ApiResult<Vec<AccountHoldings>> {
     let accounts = accounts::list(&state.pool, portfolio_id).await?;
     let transactions = transactions::list(&state.pool, portfolio_id).await?;
+    build(&accounts, &transactions)
+}
+
+/// The holdings view of already loaded rows, so an export does not read them twice.
+pub(crate) fn build(
+    accounts: &[accounts::Account],
+    transactions: &[transactions::Transaction],
+) -> ApiResult<Vec<AccountHoldings>> {
     let book = engine::read(
-        &engine_accounts(&accounts),
-        &engine_transactions(&transactions),
+        &engine_accounts(accounts),
+        &engine_transactions(transactions),
     )
     .map_err(|error| ApiError::internal(format!("the stored book is not valid: {error}")))?;
-    Ok(Json(
-        book.accounts
-            .into_iter()
-            .map(|(account_id, state)| AccountHoldings {
-                account_id,
-                currency: state.currency,
-                cash: decimal::to_text(state.cash),
-                realized: decimal::to_text(state.realized),
-                holdings: state
-                    .holdings
-                    .iter()
-                    .map(|(instrument_id, holding)| holding_view(*instrument_id, holding))
-                    .collect(),
-            })
-            .collect(),
-    ))
+    Ok(book
+        .accounts
+        .into_iter()
+        .map(|(account_id, state)| AccountHoldings {
+            account_id,
+            currency: state.currency,
+            cash: decimal::to_text(state.cash),
+            realized: decimal::to_text(state.realized),
+            holdings: state
+                .holdings
+                .iter()
+                .map(|(instrument_id, holding)| holding_view(*instrument_id, holding))
+                .collect(),
+        })
+        .collect())
 }

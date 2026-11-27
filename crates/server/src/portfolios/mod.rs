@@ -23,7 +23,7 @@ use crate::{
     auth::extract::CurrentUser,
     book,
     error::{ApiError, ApiResult},
-    performance,
+    exports, imports, performance,
     request::JsonBody,
     state::AppState,
     targets,
@@ -68,7 +68,11 @@ pub fn one_portfolio(state: AppState) -> Router<AppState> {
         .route("/holdings", get(book::holdings::show))
         .route("/performance", get(performance::show))
         .route("/targets", get(targets::show).put(targets::replace))
-        .route("/benchmark", put(set_benchmark));
+        .route("/benchmark", put(set_benchmark))
+        .route("/import", post(imports::run))
+        .route("/import/preview", post(imports::preview))
+        .route("/export.csv", get(exports::csv))
+        .route("/export.json", get(exports::json));
     guarded(routes, state)
 }
 

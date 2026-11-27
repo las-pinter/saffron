@@ -62,7 +62,7 @@ fn text(value: Option<Decimal>) -> Option<String> {
 }
 
 impl TransactionView {
-    fn new(id: i64, transaction: &engine::Transaction) -> Self {
+    pub(crate) fn new(id: i64, transaction: &engine::Transaction) -> Self {
         Self {
             id,
             account_id: transaction.account_id,
@@ -79,7 +79,7 @@ impl TransactionView {
         }
     }
 
-    fn stored(transaction: &Transaction) -> Self {
+    pub(crate) fn stored(transaction: &Transaction) -> Self {
         Self {
             id: transaction.id,
             account_id: transaction.account_id,
