@@ -8,6 +8,7 @@ pub mod fx_refresh;
 mod health;
 pub mod healthcheck;
 pub mod instruments;
+pub mod performance;
 pub mod portfolios;
 pub mod prices;
 pub mod refresh;
@@ -17,6 +18,7 @@ pub mod security;
 pub mod settings;
 pub mod state;
 mod static_files;
+pub mod targets;
 pub mod users;
 
 use axum::{
@@ -89,6 +91,10 @@ fn api(state: AppState) -> Router {
         .route("/instruments/{id}", get(instruments::show))
         .route("/instruments/{id}/prices", get(prices::history))
         .route("/instruments/{id}/prices/{date}", put(prices::enter))
+        .route(
+            "/instruments/{id}/classification",
+            put(instruments::classify),
+        )
         .route("/settings", get(settings::show).patch(settings::update))
         .route("/users", get(users::list).post(users::create))
         .route("/users/{id}/disable", post(users::disable))

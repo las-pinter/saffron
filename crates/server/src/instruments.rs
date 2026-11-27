@@ -3,7 +3,10 @@
 //! and add it.
 
 use axum::{Json, extract::State, http::StatusCode};
-use saffron_core::instrument::Isin;
+use saffron_core::{
+    instrument::Isin,
+    performance::{ASSET_CLASSES, REGIONS},
+};
 use saffron_db::{
     audit, instruments,
     instruments::{Instrument, NewInstrument, NewListing},
@@ -15,6 +18,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     auth::extract::CurrentUser,
     error::{ApiError, ApiResult},
+    performance,
     request::{JsonBody, PathParam, QueryParam},
     state::AppState,
     users::record_audit,
@@ -78,6 +82,10 @@ pub struct InstrumentView {
     pub isin: Option<String>,
     /// The ISO 4217 currency it is valued in.
     pub currency: String,
+    /// Its asset class, stored or derived from its kind.
+    pub asset_class: String,
+    /// Its region, stored or derived from its primary listing.
+    pub region: String,
     /// When it was added.
     pub created_at: String,
     /// Where providers list it, primary first.
@@ -113,6 +121,20 @@ pub async fn view(state: &AppState, instrument: Instrument) -> ApiResult<Instrum
 
 impl From<Instrument> for InstrumentView {
     fn from(instrument: Instrument) -> Self {
+        let symbol = instrument
+            .listings
+            .iter()
+            .find(|listing| listing.is_primary)
+            .or_else(|| instrument.listings.first())
+            .map(|listing| listing.symbol.as_str());
+        let asset_class = instrument
+            .asset_class
+            .clone()
+            .unwrap_or_else(|| performance::default_asset_class(instrument.kind).to_owned());
+        let region = instrument
+            .region
+            .clone()
+            .unwrap_or_else(|| performance::default_region(symbol).to_owned());
         Self {
             latest_price: None,
             id: instrument.id,
@@ -120,6 +142,8 @@ impl From<Instrument> for InstrumentView {
             name: instrument.name,
             isin: instrument.isin,
             currency: instrument.currency,
+            asset_class,
+            region,
             created_at: instrument.created_at,
             listings: instrument
                 .listings
@@ -250,6 +274,43 @@ pub async fn show(
         .await?
         .ok_or_else(ApiError::not_found)?;
     Ok(Json(view(&state, instrument).await?))
+}
+
+/// Body of `PUT /api/instruments/{id}/classification`.
+#[derive(Debug, Deserialize)]
+pub struct ClassificationRequest {
+    asset_class: String,
+    region: String,
+}
+
+/// `PUT /api/instruments/{id}/classification`: sets the asset class and region used
+/// by the allocation. Instruments are shared, so any signed-in user may classify
+/// one, as with a manual price; every call is audited, which keeps a change
+/// traceable to its author.
+pub async fn classify(
+    State(state): State<AppState>,
+    CurrentUser(session): CurrentUser,
+    PathParam(id): PathParam<i64>,
+    JsonBody(request): JsonBody<ClassificationRequest>,
+) -> ApiResult<Json<InstrumentView>> {
+    let asset_class = validate_choice(&request.asset_class, &ASSET_CLASSES, "asset class")?;
+    let region = validate_choice(&request.region, &REGIONS, "region")?;
+    if !instruments::set_classification(&state.pool, id, &asset_class, &region).await? {
+        return Err(ApiError::not_found());
+    }
+    let instrument = instruments::get(&state.pool, id)
+        .await?
+        .ok_or_else(|| ApiError::internal("a stored instrument cannot be read back"))?;
+    let view = view(&state, instrument).await?;
+    let detail = serde_json::json!({ "asset_class": asset_class, "region": region }).to_string();
+    let entry = audit::Entry {
+        user_id: Some(session.user.id),
+        action: "instrument.classify",
+        target: Some(&view.name),
+        detail: Some(&detail),
+    };
+    record_audit(&state, entry).await;
+    Ok(Json(view))
 }
 
 /// Stores `listing`: on the instrument with `isin` when Saffron has one, or as a
@@ -389,4 +450,16 @@ fn validate_isin(raw: &str) -> ApiResult<Isin> {
             "an ISIN has 12 characters and a valid check digit",
         )
     })
+}
+
+/// A classification value: trimmed, lower case, and one of `allowed`.
+fn validate_choice(raw: &str, allowed: &[&str], name: &str) -> ApiResult<String> {
+    let value = raw.trim().to_ascii_lowercase();
+    if !allowed.contains(&value.as_str()) {
+        return Err(ApiError::bad_request(
+            "invalid_classification",
+            format!("`{value}` is not a known {name}"),
+        ));
+    }
+    Ok(value)
 }

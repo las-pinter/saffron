@@ -12,6 +12,7 @@ pub mod portfolios;
 pub mod prices;
 pub mod sessions;
 pub mod settings;
+pub mod targets;
 pub mod time;
 pub mod transactions;
 pub mod users;

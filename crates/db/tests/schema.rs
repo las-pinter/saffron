@@ -126,6 +126,7 @@ async fn migrations_create_every_table() {
             "login_locks",
             "passkeys",
             "portfolio_shares",
+            "portfolio_targets",
             "portfolios",
             "prices",
             "sessions",

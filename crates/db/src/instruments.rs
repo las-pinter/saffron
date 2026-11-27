@@ -19,6 +19,10 @@ pub struct Instrument {
     pub isin: Option<String>,
     /// The ISO 4217 currency it is valued in.
     pub currency: String,
+    /// Its asset class, when an owner set one.
+    pub asset_class: Option<String>,
+    /// Its region, when an owner set one.
+    pub region: Option<String>,
     /// When it was added, as RFC 3339 text.
     pub created_at: String,
     /// Where providers list it.
@@ -68,6 +72,79 @@ pub struct NewListing<'a> {
     pub currency: &'a str,
     /// The exchange's IANA time zone, when the provider names it.
     pub timezone: Option<&'a str>,
+}
+
+/// An instrument as the performance view reads it: what it is, its currency, its
+/// classification, and its primary symbol.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Summary {
+    /// Row id.
+    pub id: i64,
+    /// What it is.
+    pub kind: InstrumentKind,
+    /// The ISO 4217 currency it is valued in.
+    pub currency: String,
+    /// Its asset class, when set.
+    pub asset_class: Option<String>,
+    /// Its region, when set.
+    pub region: Option<String>,
+    /// The primary listing's symbol, when it has a listing.
+    pub symbol: Option<String>,
+}
+
+/// A summary row: id, kind, currency, asset class, region, primary symbol.
+type SummaryRow = (
+    i64,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
+
+/// Every instrument's summary, by id.
+pub async fn summaries(pool: &SqlitePool) -> Result<Vec<Summary>, sqlx::Error> {
+    let rows: Vec<SummaryRow> = sqlx::query_as(
+        "SELECT i.id, i.kind, i.currency, i.asset_class, i.region,
+                (SELECT l.symbol FROM instrument_listings l
+                 WHERE l.instrument_id = i.id
+                 ORDER BY l.is_primary DESC, l.provider, l.symbol LIMIT 1)
+         FROM instruments i ORDER BY i.id",
+    )
+    .fetch_all(pool)
+    .await?;
+    rows.into_iter()
+        .map(|(id, kind, currency, asset_class, region, symbol)| {
+            let kind = InstrumentKind::parse(&kind).ok_or_else(|| {
+                sqlx::Error::Decode(format!("unknown instrument kind `{kind}`").into())
+            })?;
+            Ok(Summary {
+                id,
+                kind,
+                currency,
+                asset_class,
+                region,
+                symbol,
+            })
+        })
+        .collect()
+}
+
+/// Sets the classification of instrument `id`. Returns `false` when it does not
+/// exist.
+pub async fn set_classification(
+    pool: &SqlitePool,
+    id: i64,
+    asset_class: &str,
+    region: &str,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query("UPDATE instruments SET asset_class = ?, region = ? WHERE id = ?")
+        .bind(asset_class)
+        .bind(region)
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(result.rows_affected() == 1)
 }
 
 /// Creates an instrument with `listing` as its primary listing, in one transaction,
@@ -130,15 +207,28 @@ async fn insert_listing(
     Ok(())
 }
 
+/// An instrument row: id, kind, name, ISIN, currency, asset class, region, created.
+type InstrumentRow = (
+    i64,
+    String,
+    String,
+    Option<String>,
+    String,
+    Option<String>,
+    Option<String>,
+    String,
+);
+
 /// Instrument `id` with its listings; `None` when there is none.
 pub async fn get(pool: &SqlitePool, id: i64) -> Result<Option<Instrument>, sqlx::Error> {
-    let row: Option<(i64, String, String, Option<String>, String, String)> = sqlx::query_as(
-        "SELECT id, kind, name, isin, currency, created_at FROM instruments WHERE id = ?",
+    let row: Option<InstrumentRow> = sqlx::query_as(
+        "SELECT id, kind, name, isin, currency, asset_class, region, created_at
+         FROM instruments WHERE id = ?",
     )
     .bind(id)
     .fetch_optional(pool)
     .await?;
-    let Some((id, kind, name, isin, currency, created_at)) = row else {
+    let Some((id, kind, name, isin, currency, asset_class, region, created_at)) = row else {
         return Ok(None);
     };
     let kind = InstrumentKind::parse(&kind)
@@ -156,6 +246,8 @@ pub async fn get(pool: &SqlitePool, id: i64) -> Result<Option<Instrument>, sqlx:
         name,
         isin,
         currency,
+        asset_class,
+        region,
         created_at,
         listings,
     }))

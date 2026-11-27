@@ -99,6 +99,44 @@ pub async fn day_on_or_before(pool: &SqlitePool, date: Date) -> Result<Option<Da
     Ok(Some(day))
 }
 
+/// The ECB days from the newest one on or before `from` through `to`, oldest
+/// first; the leading day lets a value ramp start with a carried rate.
+pub async fn between_with_prior(
+    pool: &SqlitePool,
+    from: Date,
+    to: Date,
+) -> Result<Vec<(Date, Day)>, sqlx::Error> {
+    let rows: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT date, currency, per_eur FROM fx_rates
+         WHERE date >= COALESCE((SELECT max(date) FROM fx_rates WHERE date <= ?1), ?1)
+           AND date <= ?2
+         ORDER BY date, currency",
+    )
+    .bind(from.to_string())
+    .bind(to.to_string())
+    .fetch_all(pool)
+    .await?;
+    let mut days: Vec<(Date, Day)> = Vec::new();
+    for (date, currency, per_eur) in rows {
+        let day = date.parse().map_err(|error| {
+            sqlx::Error::Decode(format!("bad fx date `{date}`: {error}").into())
+        })?;
+        let per_eur = decimal::from_text(&per_eur)
+            .map_err(|error| sqlx::Error::Decode(error.to_string().into()))?;
+        match days.last_mut() {
+            Some((last, rates)) if *last == day => {
+                rates.insert(currency, per_eur);
+            }
+            _ => {
+                let mut rates = Day::new();
+                rates.insert(currency, per_eur);
+                days.push((day, rates));
+            }
+        }
+    }
+    Ok(days)
+}
+
 /// `amount` in `from` converted to `to` on `date` (or the last published day
 /// before it). `None` when a rate is missing, so a wrong number is never invented.
 pub async fn convert(

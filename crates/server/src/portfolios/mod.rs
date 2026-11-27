@@ -9,10 +9,10 @@ use axum::{
     extract::State,
     http::StatusCode,
     middleware,
-    routing::{get, post},
+    routing::{get, post, put},
 };
 use saffron_db::{
-    audit, is_unique_violation,
+    audit, instruments, is_unique_violation,
     portfolios::{self, Access, NewPortfolio, Role},
     users::User,
 };
@@ -23,8 +23,10 @@ use crate::{
     auth::extract::CurrentUser,
     book,
     error::{ApiError, ApiResult},
+    performance,
     request::JsonBody,
     state::AppState,
+    targets,
     users::record_audit,
 };
 
@@ -63,7 +65,10 @@ pub fn one_portfolio(state: AppState) -> Router<AppState> {
             "/transactions/{transaction_id}",
             axum::routing::delete(book::transactions::delete),
         )
-        .route("/holdings", get(book::holdings::show));
+        .route("/holdings", get(book::holdings::show))
+        .route("/performance", get(performance::show))
+        .route("/targets", get(targets::show).put(targets::replace))
+        .route("/benchmark", put(set_benchmark));
     guarded(routes, state)
 }
 
@@ -93,6 +98,8 @@ pub struct PortfolioView {
     pub name: String,
     /// ISO 4217 code that values are reported in.
     pub base_currency: String,
+    /// The benchmark instrument; `None` compares against the default.
+    pub benchmark_instrument_id: Option<i64>,
     /// The viewing user's role: `owner`, `editor`, or `viewer`.
     pub role: String,
     /// Who owns it.
@@ -110,6 +117,7 @@ impl From<&Access> for PortfolioView {
             id: portfolio.id,
             name: portfolio.name.clone(),
             base_currency: portfolio.base_currency.clone(),
+            benchmark_instrument_id: portfolio.benchmark_instrument_id,
             role: access.role.as_str().to_owned(),
             owner: OwnerView {
                 id: portfolio.owner_id,
@@ -234,6 +242,50 @@ async fn set_archived(
     };
     record_audit(state, entry(user, &access.0, action, None)).await;
     reloaded(state, user, id).await
+}
+
+/// Body of `PUT /api/portfolios/{portfolio_id}/benchmark`.
+#[derive(Debug, Deserialize)]
+pub struct BenchmarkRequest {
+    #[serde(default)]
+    instrument_id: Option<i64>,
+}
+
+/// `PUT /api/portfolios/{portfolio_id}/benchmark`: compares the portfolio against
+/// `instrument_id`; `null` restores the default benchmark.
+pub async fn set_benchmark(
+    State(state): State<AppState>,
+    CurrentUser(session): CurrentUser,
+    access: PortfolioAccess,
+    JsonBody(request): JsonBody<BenchmarkRequest>,
+) -> ApiResult<Json<PortfolioView>> {
+    access.require(Role::Editor)?;
+    if let Some(instrument_id) = request.instrument_id
+        && instruments::get(&state.pool, instrument_id)
+            .await?
+            .is_none()
+    {
+        return Err(ApiError::bad_request(
+            "unknown_instrument",
+            "there is no instrument with that id",
+        ));
+    }
+    let id = access.0.portfolio.id;
+    if !portfolios::set_benchmark(&state.pool, id, request.instrument_id).await? {
+        return Err(ApiError::not_found());
+    }
+    let detail = serde_json::json!({ "instrument_id": request.instrument_id }).to_string();
+    record_audit(
+        &state,
+        entry(
+            &session.user,
+            &access.0,
+            "portfolio.set_benchmark",
+            Some(&detail),
+        ),
+    )
+    .await;
+    reloaded(&state, &session.user, id).await
 }
 
 async fn reloaded(state: &AppState, user: &User, id: i64) -> ApiResult<Json<PortfolioView>> {

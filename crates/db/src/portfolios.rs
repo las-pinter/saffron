@@ -20,6 +20,8 @@ pub struct Portfolio {
     pub created_at: String,
     /// When it was archived, as RFC 3339 text; `None` while active.
     pub archived_at: Option<String>,
+    /// The benchmark instrument, when the owner chose one; `None` uses the default.
+    pub benchmark_instrument_id: Option<i64>,
 }
 
 /// What a user may do with a portfolio, weakest first.
@@ -117,6 +119,7 @@ macro_rules! select_access {
     ($tail:literal) => {
         concat!(
             "SELECT p.id, p.owner_id, p.name, p.base_currency, p.created_at, p.archived_at,
+                    p.benchmark_instrument_id,
                     CASE WHEN p.owner_id = ?1 THEN 'owner' ELSE s.role END AS role,
                     o.username, o.display_name
              FROM portfolios p
@@ -135,6 +138,7 @@ type AccessRow = (
     String,
     String,
     Option<String>,
+    Option<i64>,
     String,
     String,
     String,
@@ -148,6 +152,7 @@ fn access_from_row(row: AccessRow) -> Result<Access, sqlx::Error> {
         base_currency,
         created_at,
         archived_at,
+        benchmark_instrument_id,
         role,
         owner_username,
         owner_display_name,
@@ -162,6 +167,7 @@ fn access_from_row(row: AccessRow) -> Result<Access, sqlx::Error> {
             base_currency,
             created_at,
             archived_at,
+            benchmark_instrument_id,
         },
         role,
         owner_username,
@@ -210,6 +216,20 @@ pub async fn visible_to(pool: &SqlitePool, user_id: i64) -> Result<Vec<Access>, 
         .fetch_all(pool)
         .await?;
     rows.into_iter().map(access_from_row).collect()
+}
+
+/// Sets the benchmark instrument of `portfolio_id`; `None` restores the default.
+pub async fn set_benchmark(
+    pool: &SqlitePool,
+    portfolio_id: i64,
+    instrument_id: Option<i64>,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query("UPDATE portfolios SET benchmark_instrument_id = ? WHERE id = ?")
+        .bind(instrument_id)
+        .bind(portfolio_id)
+        .execute(pool)
+        .await?;
+    Ok(result.rows_affected() == 1)
 }
 
 /// Renames a portfolio. A name the owner already uses fails with a

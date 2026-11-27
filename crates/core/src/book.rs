@@ -328,6 +328,20 @@ struct Moving {
     lots: VecDeque<Lot>,
 }
 
+/// Reads the book as it stood at the close of `date`.
+pub fn read_until(
+    accounts: &[Account],
+    transactions: &[Transaction],
+    date: Date,
+) -> Result<Book, BookError> {
+    let upto: Vec<Transaction> = transactions
+        .iter()
+        .filter(|transaction| transaction.date <= date)
+        .cloned()
+        .collect();
+    read(accounts, &upto)
+}
+
 fn apply(
     states: &mut BTreeMap<i64, AccountState>,
     moving: &mut BTreeMap<i64, Vec<Moving>>,

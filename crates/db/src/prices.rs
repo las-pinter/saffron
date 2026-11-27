@@ -105,6 +105,26 @@ pub async fn history(
     rows.into_iter().map(from_row).collect()
 }
 
+/// The prices of `instrument_ids` up to `to`, oldest first.
+pub async fn until(
+    pool: &SqlitePool,
+    instrument_ids: &[i64],
+    to: Date,
+) -> Result<Vec<Price>, sqlx::Error> {
+    let ids = serde_json::to_string(instrument_ids)
+        .map_err(|error| sqlx::Error::Encode(Box::new(error)))?;
+    let rows: Vec<PriceRow> = sqlx::query_as(concat!(
+        "SELECT instrument_id, date, close, currency, source, as_of, checked_at FROM prices ",
+        "WHERE instrument_id IN (SELECT value FROM json_each(?1)) AND date <= ?2 ",
+        "ORDER BY instrument_id, date"
+    ))
+    .bind(ids)
+    .bind(to.to_string())
+    .fetch_all(pool)
+    .await?;
+    rows.into_iter().map(from_row).collect()
+}
+
 /// When each instrument's newest price was valid, and when a provider last
 /// confirmed it.
 pub async fn latest_marks(

@@ -54,6 +54,8 @@ async fn adding_the_op_fund_stores_it_in_euros() {
             "name": "OP-Suomi Indeksi B",
             "isin": "FI4000315700",
             "currency": "EUR",
+            "asset_class": "equity",
+            "region": "europe",
             "created_at": "2026-11-25T12:00:00Z",
             "latest_price": null,
             "listings": [{

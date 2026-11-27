@@ -3,3 +3,4 @@
 pub mod book;
 pub mod freshness;
 pub mod instrument;
+pub mod performance;

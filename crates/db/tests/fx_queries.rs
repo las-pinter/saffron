@@ -65,6 +65,36 @@ async fn a_price_between_two_currencies_goes_through_the_euro() {
 }
 
 #[tokio::test]
+async fn a_range_starting_before_the_archive_keeps_its_rates() {
+    let pool = pool_with_rates().await;
+
+    let days = fx::between_with_prior(&pool, date(2026, 1, 1), date(2026, 11, 26))
+        .await
+        .expect("days");
+
+    assert_eq!(
+        days.iter().map(|(day, _)| *day).collect::<Vec<_>>(),
+        [date(2026, 11, 25), date(2026, 11, 26)],
+        "no day precedes the archive, so the range starts with its first day"
+    );
+}
+
+#[tokio::test]
+async fn a_prior_day_leads_the_range() {
+    let pool = pool_with_rates().await;
+
+    let days = fx::between_with_prior(&pool, date(2026, 11, 27), date(2026, 11, 28))
+        .await
+        .expect("days");
+
+    assert_eq!(
+        days.iter().map(|(day, _)| *day).collect::<Vec<_>>(),
+        [date(2026, 11, 26)],
+        "a start without a publication takes the last day before it"
+    );
+}
+
+#[tokio::test]
 async fn a_weekend_uses_the_last_published_day() {
     let pool = pool_with_rates().await;
 
