@@ -41,3 +41,29 @@ async fn the_ecb_serves_rates_and_history() {
         history.len()
     );
 }
+
+#[tokio::test]
+#[ignore = "calls Yahoo Finance; run with `just live`"]
+async fn the_op_fund_answers_with_a_quote_and_history() {
+    let yahoo = Yahoo::live().expect("client");
+
+    let spots = yahoo.quotes(&["0P0001DHRJ.F", "NOKIA.HE"]).await;
+    let history = yahoo
+        .history(
+            "NOKIA.HE",
+            jiff::civil::date(2026, 11, 1),
+            jiff::civil::date(2026, 11, 26),
+        )
+        .await;
+
+    assert!(
+        spots.as_ref().is_ok_and(|spots| !spots.is_empty()),
+        "a batched quote: {spots:?}"
+    );
+    assert!(
+        history
+            .as_ref()
+            .is_ok_and(|history| !history.closes.is_empty()),
+        "a month of daily closes: {history:?}"
+    );
+}
