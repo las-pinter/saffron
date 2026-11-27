@@ -139,6 +139,85 @@ async fn migrations_create_every_table() {
 }
 
 #[tokio::test]
+async fn the_unused_import_key_column_is_gone() {
+    let pool = db().await;
+
+    let columns: Vec<String> =
+        sqlx::query_scalar("SELECT name FROM pragma_table_info('transactions') ORDER BY name")
+            .fetch_all(&pool)
+            .await
+            .expect("columns");
+
+    assert!(
+        !columns.iter().any(|column| column == "import_key"),
+        "{columns:?}"
+    );
+    assert!(
+        columns.iter().any(|column| column == "fx_rate"),
+        "the rebuild keeps the other columns: {columns:?}"
+    );
+}
+
+#[tokio::test]
+async fn dropping_import_key_keeps_existing_transactions() {
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .expect("database");
+    sqlx::raw_sql(include_str!("../migrations/0001_initial.sql"))
+        .execute(&pool)
+        .await
+        .expect("initial schema");
+    for statement in [
+        "INSERT INTO users (id, username, display_name, created_at) VALUES (1, 'u', 'U', '2026-01-01T00:00:00Z')",
+        "INSERT INTO portfolios (id, owner_id, name, base_currency, created_at) VALUES (1, 1, 'Main', 'EUR', '2026-01-01T00:00:00Z')",
+        "INSERT INTO accounts (id, portfolio_id, name, kind, currency, created_at) VALUES (1, 1, 'Book', 'book_entry', 'EUR', '2026-01-01T00:00:00Z')",
+        "INSERT INTO transactions (id, account_id, kind, trade_date, amount, currency, note, import_key, created_at, updated_at)
+         VALUES (1, 1, 'deposit', '2026-01-02', '100', 'EUR', 'kept', 'key-1', '2026-01-02T00:00:00Z', '2026-01-02T00:00:00Z')",
+    ] {
+        sqlx::query(statement)
+            .execute(&pool)
+            .await
+            .expect("fixture row");
+    }
+
+    sqlx::raw_sql(include_str!("../migrations/0007_drop_import_key.sql"))
+        .execute(&pool)
+        .await
+        .expect("the migration");
+
+    let row: (String, String, Option<String>) =
+        sqlx::query_as("SELECT kind, amount, note FROM transactions WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .expect("the transaction survived");
+    assert_eq!(
+        row,
+        (
+            "deposit".to_owned(),
+            "100".to_owned(),
+            Some("kept".to_owned())
+        )
+    );
+    let columns: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM pragma_table_info('transactions') WHERE name = 'import_key'",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("columns");
+    assert_eq!(columns, 0);
+    let indexes: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'index'
+         AND name IN ('transactions_account_date', 'transactions_instrument')",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("indexes");
+    assert_eq!(indexes, 2, "the rebuild recreates both indexes");
+}
+
+#[tokio::test]
 async fn foreign_keys_are_enforced() {
     let pool = db().await;
 
