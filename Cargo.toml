@@ -60,6 +60,10 @@ unwrap_used = "warn"
 dbg_macro = "warn"
 todo = "warn"
 
+# Line tables keep file and line numbers in backtraces at about half the build size.
+[profile.dev]
+debug = "line-tables-only"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
